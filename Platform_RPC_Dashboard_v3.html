@@ -1,0 +1,1858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Platform Funding — Intelligence Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg:        #1a1c1b;
+  --bg2:       #1f2220;
+  --surface:   #252927;
+  --surface2:  #2c302e;
+  --surface3:  #333836;
+  --rim:       rgba(160,200,180,0.09);
+  --rim2:      rgba(160,200,180,0.16);
+  --primary:   #2fc4ac;
+  --primary2:  #1fa090;
+  --primary3:  #178070;
+  --glow:      rgba(47,196,172,0.12);
+  --green:     #4ade9e;
+  --green-dim: rgba(74,222,158,0.10);
+  --amber:     #fbbf24;
+  --amber-dim: rgba(251,191,36,0.10);
+  --red:       #f87171;
+  --red-dim:   rgba(248,113,113,0.10);
+  --purple:    #a78bfa;
+  --text:      #e8ede8;
+  --text2:     #8aab98;
+  --text3:     #506860;
+  --mono:      'DM Mono', monospace;
+  --sans:      'Outfit', sans-serif;
+  --display:   'Syne', sans-serif;
+  --r:         10px;
+  --r-sm:      6px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 13px;
+  overflow-x: hidden;
+}
+
+/* ── AMBIENT BACKGROUND ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 40% at 15% 20%, rgba(0,150,138,0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 85% 75%, rgba(0,196,180,0.05) 0%, transparent 70%);
+}
+
+/* ── HEADER ── */
+.header {
+  position: sticky; top: 0; z-index: 200;
+  background: rgba(5,15,14,0.92);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--rim2);
+  padding: 0 28px;
+  height: 56px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-logo { display: flex; align-items: center; }
+.brand-logo svg { filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3)); }
+.brand-name {
+  font-family: var(--display); font-weight: 700; font-size: 15px;
+  letter-spacing: -0.3px; color: var(--text);
+}
+.brand-sub { font-size: 10px; color: var(--text2); margin-top: 1px; }
+
+.header-right { display: flex; align-items: center; gap: 12px; }
+.status-pill {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface2); border: 1px solid var(--rim);
+  border-radius: 20px; padding: 4px 12px; font-size: 11px; color: var(--text2);
+}
+.status-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+.connect-btn {
+  background: linear-gradient(135deg, var(--primary2), var(--primary));
+  border: none; border-radius: var(--r-sm); padding: 6px 14px;
+  font-family: var(--sans); font-size: 11px; font-weight: 600;
+  color: #fff; cursor: pointer; transition: opacity 0.2s;
+}
+.connect-btn:hover { opacity: 0.85; }
+
+/* ── TABS ── */
+.tabs {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--rim);
+  padding: 0 28px;
+  display: flex; gap: 0; position: sticky; top: 56px; z-index: 100;
+  overflow-x: auto;
+}
+.tabs::-webkit-scrollbar { height: 2px; }
+.tabs::-webkit-scrollbar-thumb { background: var(--surface3); }
+
+.tab {
+  background: none; border: none; cursor: pointer;
+  font-family: var(--sans); font-size: 12px; font-weight: 500;
+  color: var(--text3); padding: 14px 18px 12px;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap; transition: all 0.15s;
+  display: flex; align-items: center; gap: 7px;
+}
+.tab:hover { color: var(--text2); }
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.tab-icon { font-size: 13px; }
+
+/* ── MAIN ── */
+.main { padding: 24px 28px; position: relative; z-index: 1; max-width: 1700px; }
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ── PAGE HEADER ── */
+.page-hdr { margin-bottom: 24px; }
+.page-title {
+  font-family: var(--display); font-size: 22px; font-weight: 700;
+  letter-spacing: -0.5px; color: var(--text);
+}
+.page-sub { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+/* ── KPI GRID ── */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap: 12px; margin-bottom: 20px; }
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--rim);
+  border-radius: var(--r); padding: 16px;
+  position: relative; overflow: hidden;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.kpi:hover { border-color: var(--rim2); transform: translateY(-1px); }
+.kpi::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: var(--primary); opacity: 0.6;
+}
+.kpi.green::after { background: var(--green); }
+.kpi.amber::after { background: var(--amber); }
+.kpi.red::after { background: var(--red); }
+.kpi.purple::after { background: var(--purple); }
+.kpi-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text2); margin-bottom: 10px; }
+.kpi-val {
+  font-family: var(--mono); font-size: 28px; font-weight: 500;
+  letter-spacing: -1px; line-height: 1; color: var(--primary);
+}
+.kpi-val.green { color: var(--green); }
+.kpi-val.amber { color: var(--amber); }
+.kpi-val.white { color: var(--text); }
+.kpi-foot { font-size: 10px; color: var(--text3); margin-top: 6px; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--surface); border: 1px solid var(--rim);
+  border-radius: var(--r); margin-bottom: 16px; overflow: hidden;
+}
+.card-hdr {
+  padding: 13px 18px; border-bottom: 1px solid var(--rim);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-title { font-family: var(--display); font-size: 13px; font-weight: 600; }
+.card-sub { font-size: 11px; color: var(--text2); }
+
+/* ── TABLE ── */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead th {
+  background: rgba(0,0,0,0.3); padding: 10px 14px;
+  text-align: left; font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.6px; color: var(--text2);
+  border-bottom: 1px solid var(--rim); white-space: nowrap;
+  cursor: pointer; user-select: none;
+}
+thead th:hover { color: var(--text); }
+thead th.asc::after { content: ' ↑'; color: var(--primary); }
+thead th.desc::after { content: ' ↓'; color: var(--primary); }
+tbody tr { border-bottom: 1px solid var(--rim); transition: background 0.1s; }
+tbody tr:hover { background: rgba(0,196,180,0.03); }
+tbody tr:last-child { border-bottom: none; }
+td { padding: 9px 14px; white-space: nowrap; }
+td.num { font-family: var(--mono); text-align: right; }
+td.currency { font-family: var(--mono); text-align: right; color: var(--green); }
+td.muted { color: var(--text3); }
+
+/* ── BADGES ── */
+.badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 7px; border-radius: 20px;
+  font-size: 10px; font-weight: 600; white-space: nowrap;
+}
+.b-poa1 { background: rgba(251,191,36,0.12); color: var(--amber); border: 1px solid rgba(251,191,36,0.25); }
+.b-poa2 { background: rgba(248,113,113,0.12); color: var(--red); border: 1px solid rgba(248,113,113,0.25); }
+.b-poa3 { background: rgba(167,139,250,0.12); color: var(--purple); border: 1px solid rgba(167,139,250,0.25); }
+.b-up   { background: rgba(52,211,153,0.10); color: var(--green); border: 1px solid rgba(52,211,153,0.2); }
+.b-down { background: rgba(248,113,113,0.10); color: var(--red); border: 1px solid rgba(248,113,113,0.2); }
+.b-stay { background: rgba(255,255,255,0.04); color: var(--text3); border: 1px solid var(--rim); }
+.b-new  { background: rgba(167,139,250,0.12); color: var(--purple); border: 1px solid rgba(167,139,250,0.25); }
+.b-blo  { background: rgba(0,196,180,0.10); color: var(--primary); border: 1px solid var(--rim2); }
+.b-ca   { background: rgba(96,165,250,0.10); color: #60a5fa; border: 1px solid rgba(96,165,250,0.2); }
+.b-fl   { background: rgba(52,211,153,0.10); color: var(--green); border: 1px solid rgba(52,211,153,0.2); }
+.b-goal-hi  { background: rgba(52,211,153,0.10); color: var(--green); border: 1px solid rgba(52,211,153,0.2); }
+.b-goal-mid { background: rgba(251,191,36,0.10); color: var(--amber); border: 1px solid rgba(251,191,36,0.2); }
+.b-goal-lo  { background: rgba(248,113,113,0.10); color: var(--red); border: 1px solid rgba(248,113,113,0.2); }
+
+/* ── RATE BAR ── */
+.rbar { display: flex; align-items: center; gap: 7px; min-width: 90px; }
+.rbar-bg { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; min-width: 44px; }
+.rbar-fill { height: 100%; border-radius: 2px; }
+.rbar-fill.g { background: var(--green); }
+.rbar-fill.a { background: var(--amber); }
+.rbar-fill.r { background: var(--red); }
+.rbar-fill.t { background: var(--primary); }
+.rbar-val { font-family: var(--mono); font-size: 11px; min-width: 36px; text-align: right; color: var(--text2); }
+
+/* ── FUNNEL ── */
+.funnel { display: grid; grid-template-columns: repeat(5,1fr); gap: 10px; margin-bottom: 20px; }
+.funnel-step {
+  background: var(--surface); border: 1px solid var(--rim);
+  border-radius: var(--r); padding: 16px; text-align: center;
+  position: relative;
+}
+.funnel-step::after {
+  content: '›'; position: absolute; right: -8px; top: 50%;
+  transform: translateY(-50%); color: var(--text3); font-size: 18px; z-index: 1;
+}
+.funnel-step:last-child::after { display: none; }
+.funnel-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.7px; color: var(--text2); margin-bottom: 8px; }
+.funnel-val { font-family: var(--mono); font-size: 30px; font-weight: 500; letter-spacing: -1px; color: var(--primary); }
+.funnel-val.green { color: var(--green); }
+.funnel-val.amber { color: var(--amber); }
+.funnel-rate { font-size: 11px; color: var(--text3); margin-top: 4px; }
+.funnel-rate em { color: var(--green); font-style: normal; font-weight: 600; }
+
+/* ── DIV CARDS ── */
+.div-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 20px; }
+.div-card { background: var(--surface); border: 1px solid var(--rim); border-radius: var(--r); padding: 16px; }
+.div-name { font-family: var(--display); font-size: 14px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.div-stat { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--rim); }
+.div-stat:last-child { border-bottom: none; }
+.div-stat-label { font-size: 11px; color: var(--text2); }
+.div-stat-val { font-family: var(--mono); font-size: 12px; font-weight: 500; }
+
+/* ── STAGE PIPELINE ── */
+.stage-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 10px; margin-bottom: 20px; }
+.stage-col {
+  background: var(--surface); border: 1px solid var(--rim);
+  border-radius: var(--r); overflow: hidden;
+}
+.stage-hdr {
+  padding: 10px 12px; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.6px;
+  border-bottom: 1px solid var(--rim);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.stage-body { padding: 8px; max-height: 400px; overflow-y: auto; }
+.stage-deal {
+  background: var(--surface2); border: 1px solid var(--rim);
+  border-radius: var(--r-sm); padding: 8px 10px; margin-bottom: 6px;
+  font-size: 11px;
+}
+.stage-deal:last-child { margin-bottom: 0; }
+.stage-merchant { font-weight: 600; color: var(--text); margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stage-agent { color: var(--text2); font-size: 10px; }
+.stage-days { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+.stage-days.warn { color: var(--amber); }
+.stage-days.danger { color: var(--red); }
+
+/* ── REVIEW SCHEDULE ── */
+.sched-grid { display: grid; grid-template-columns: 380px 1fr; gap: 20px; }
+.priority-list { overflow-y: auto; max-height: 520px; }
+.priority-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-bottom: 1px solid var(--rim);
+  transition: background 0.1s;
+}
+.priority-row:hover { background: rgba(0,196,180,0.03); }
+.priority-agent { font-weight: 600; font-size: 12px; flex: 1; min-width: 0; }
+.priority-meta { font-size: 10px; color: var(--text3); margin-top: 2px; }
+.priority-freq { font-size: 11px; font-weight: 700; min-width: 70px; text-align: right; }
+.freq-weekly   { color: var(--red); }
+.freq-biweekly { color: var(--amber); }
+.freq-monthly  { color: var(--primary); }
+.freq-accel    { color: var(--green); }
+
+/* ── CALENDAR ── */
+.cal-wrap { padding: 14px; }
+.cal-dow { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; margin-bottom: 4px; }
+.cal-dow-hdr { text-align: center; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text3); padding: 4px 0; }
+.cal-days { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; }
+.cal-day {
+  background: rgba(255,255,255,0.02); border: 1px solid var(--rim);
+  border-radius: var(--r-sm); padding: 5px; min-height: 64px; font-size: 9px;
+}
+.cal-day.empty { background: transparent; border-color: transparent; }
+.cal-day.weekend { background: rgba(0,0,0,0.2); }
+.cal-day.today { border-color: var(--primary); }
+.cal-day-num { font-size: 9px; font-weight: 700; color: var(--text3); margin-bottom: 3px; }
+.cal-day.today .cal-day-num { color: var(--primary); }
+.cal-chip {
+  border-radius: 2px; padding: 1px 4px; margin-bottom: 2px;
+  font-size: 8px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  cursor: default;
+}
+.cal-chip.weekly   { background: rgba(248,113,113,0.2); color: var(--red); }
+.cal-chip.biweekly { background: rgba(251,191,36,0.15); color: var(--amber); }
+.cal-chip.monthly  { background: rgba(0,196,180,0.12); color: var(--primary); }
+
+/* ── NEW HIRE TOGGLES ── */
+.nh-toggles { display: flex; flex-wrap: wrap; gap: 4px; padding: 10px 14px; border-top: 1px solid var(--rim); }
+.nh-btn {
+  background: none; border: 1px solid var(--rim2); border-radius: 20px;
+  padding: 2px 9px; font-family: var(--sans); font-size: 10px;
+  color: var(--text2); cursor: pointer; transition: all 0.15s;
+}
+.nh-btn.on { background: rgba(167,139,250,0.15); color: var(--purple); border-color: rgba(167,139,250,0.3); }
+
+/* ── CONNECT PANEL ── */
+.connect-panel {
+  background: var(--surface); border: 1px solid var(--rim2);
+  border-radius: var(--r); padding: 32px; text-align: center;
+  max-width: 560px; margin: 60px auto;
+}
+.connect-icon { font-size: 40px; margin-bottom: 16px; }
+.connect-title { font-family: var(--display); font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+.connect-sub { font-size: 13px; color: var(--text2); margin-bottom: 24px; line-height: 1.6; }
+.connect-input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--rim2);
+  border-radius: var(--r-sm); padding: 10px 14px; font-family: var(--mono);
+  font-size: 12px; color: var(--text); outline: none; margin-bottom: 12px;
+}
+.connect-input:focus { border-color: var(--primary); }
+.connect-go {
+  width: 100%; background: linear-gradient(135deg, var(--primary2), var(--primary));
+  border: none; border-radius: var(--r-sm); padding: 11px;
+  font-family: var(--display); font-size: 13px; font-weight: 700;
+  color: #fff; cursor: pointer; transition: opacity 0.2s;
+}
+.connect-go:hover { opacity: 0.85; }
+.connect-err { color: var(--red); font-size: 12px; margin-top: 8px; display: none; }
+
+/* ── LOADING ── */
+.loading {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; height: 300px; gap: 16px;
+}
+.spin {
+  width: 36px; height: 36px; border: 3px solid var(--rim2);
+  border-top-color: var(--primary); border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 13px; color: var(--text2); }
+
+/* ── FILTER BAR ── */
+.filter-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+.filter-label { font-size: 11px; color: var(--text2); }
+.fsel {
+  background: var(--surface2); border: 1px solid var(--rim2);
+  color: var(--text); font-family: var(--sans); font-size: 11px;
+  padding: 5px 10px; border-radius: var(--r-sm); cursor: pointer; outline: none;
+}
+.fsel:focus { border-color: var(--primary); }
+.fsearch {
+  background: var(--surface2); border: 1px solid var(--rim2);
+  color: var(--text); font-family: var(--sans); font-size: 11px;
+  padding: 5px 12px; border-radius: var(--r-sm); outline: none; width: 150px;
+}
+.fsearch:focus { border-color: var(--primary); }
+.fsearch::placeholder { color: var(--text3); }
+
+/* ── ALERT CARDS ── */
+.alert-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap: 12px; margin-bottom: 20px; }
+.alert-card {
+  background: var(--surface); border: 1px solid var(--rim);
+  border-left: 3px solid var(--amber);
+  border-radius: var(--r); padding: 13px 14px;
+}
+.alert-card.danger { border-left-color: var(--red); }
+.alert-card.good   { border-left-color: var(--green); }
+.alert-ttl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text2); margin-bottom: 5px; }
+.alert-body { font-size: 12px; line-height: 1.5; color: var(--text); }
+.alert-body strong { color: var(--text); font-weight: 600; }
+
+/* ── TWO COL ── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+
+/* ── GOAL PROGRESS ── */
+.goal-wrap { display: flex; align-items: center; gap: 6px; min-width: 110px; }
+.goal-bg { flex: 1; height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+.goal-fill { height: 100%; border-radius: 3px; }
+.goal-pct { font-family: var(--mono); font-size: 11px; min-width: 38px; }
+
+/* ── HERO NUMBERS (agent card) ── */
+.hero-nums { display: flex; gap: 6px; }
+.hero-num {
+  display: flex; flex-direction: column; align-items: center;
+  background: var(--surface2); border: 1px solid var(--rim);
+  border-radius: var(--r-sm); padding: 5px 10px; min-width: 52px;
+}
+.hero-n { font-family: var(--mono); font-size: 15px; font-weight: 500; color: var(--primary); line-height: 1; }
+.hero-n.green { color: var(--green); }
+.hero-n.amber { color: var(--amber); }
+.hero-l { font-size: 9px; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.4px; }
+
+/* ── DATE BAR ── */
+.date-mode-btn {
+  background: none; border: 1px solid var(--rim2); border-radius: 20px;
+  padding: 3px 12px; font-family: var(--sans); font-size: 11px; font-weight: 500;
+  color: var(--text2); cursor: pointer; transition: all 0.15s;
+}
+.date-mode-btn:hover { color: var(--text); }
+.date-mode-btn.active { background: var(--surface3); color: var(--primary); border-color: var(--primary); }
+
+/* ── REVIEW FORM ── */
+.review-form { padding: 20px; }
+.review-field { margin-bottom: 14px; }
+.review-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text2); margin-bottom: 5px; }
+.review-input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--rim2);
+  border-radius: var(--r-sm); padding: 8px 12px; font-family: var(--sans);
+  font-size: 12px; color: var(--text); outline: none; resize: vertical;
+}
+.review-input:focus { border-color: var(--primary); }
+.review-metrics-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 14px; }
+.review-metric {
+  background: var(--surface2); border: 1px solid var(--rim);
+  border-radius: var(--r-sm); padding: 8px 10px; text-align: center;
+}
+.review-metric-val { font-family: var(--mono); font-size: 16px; color: var(--primary); font-weight: 500; }
+.review-metric-val.green { color: var(--green); }
+.review-metric-val.amber { color: var(--amber); }
+.review-metric-label { font-size: 9px; color: var(--text3); margin-top: 2px; text-transform: uppercase; }
+.review-actions { display: flex; gap: 8px; margin-top: 16px; }
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary2), var(--primary));
+  border: none; border-radius: var(--r-sm); padding: 8px 18px;
+  font-family: var(--sans); font-size: 12px; font-weight: 600;
+  color: #fff; cursor: pointer; transition: opacity 0.2s;
+}
+.btn-primary:hover { opacity: 0.85; }
+.btn-secondary {
+  background: var(--surface2); border: 1px solid var(--rim2);
+  border-radius: var(--r-sm); padding: 8px 18px;
+  font-family: var(--sans); font-size: 12px; font-weight: 500;
+  color: var(--text2); cursor: pointer; transition: all 0.15s;
+}
+.btn-secondary:hover { color: var(--text); border-color: var(--rim2); }
+.agent-selector {
+  width: 100%; background: var(--surface2); border: 1px solid var(--rim2);
+  color: var(--text); font-family: var(--sans); font-size: 12px;
+  padding: 8px 12px; border-radius: var(--r-sm); outline: none; cursor: pointer;
+  margin-bottom: 14px;
+}
+.agent-selector:focus { border-color: var(--primary); }
+.review-history-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 10px 14px; border-bottom: 1px solid var(--rim);
+}
+.review-history-row:hover { background: rgba(0,196,180,0.02); }
+.rh-date { font-family: var(--mono); font-size: 11px; color: var(--text3); min-width: 80px; }
+.rh-type { min-width: 70px; }
+.rh-agent { font-weight: 600; font-size: 12px; min-width: 140px; }
+.rh-topics { font-size: 11px; color: var(--text2); flex: 1; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .funnel { grid-template-columns: repeat(3,1fr); }
+  .div-grid { grid-template-columns: 1fr; }
+  .stage-grid { grid-template-columns: repeat(2,1fr); }
+  .sched-grid { grid-template-columns: 1fr; }
+  .two-col { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">
+    <div class="brand-logo">
+      <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Top-left leaf: dark green -->
+        <rect x="1" y="1" width="15" height="15" rx="5" ry="5" fill="#1a9e72"/>
+        <!-- Top-right leaf: dark green -->
+        <rect x="20" y="1" width="15" height="15" rx="5" ry="5" fill="#1a9e72"/>
+        <!-- Bottom-left leaf: teal -->
+        <rect x="1" y="20" width="15" height="15" rx="5" ry="5" fill="#2ab5b0"/>
+        <!-- Bottom-right leaf: teal -->
+        <rect x="20" y="20" width="15" height="15" rx="5" ry="5" fill="#2ab5b0"/>
+      </svg>
+    </div>
+    <div>
+      <div class="brand-name" style="color:#e8ede8;letter-spacing:-0.5px">Platform <span style="font-weight:500;color:#8aab98">Funding</span></div>
+      <div class="brand-sub">RPC Intelligence Dashboard</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="status-pill" id="statusPill">
+      <div class="status-dot" style="background:var(--text3);box-shadow:none"></div>
+      <span id="statusText">Not connected</span>
+    </div>
+    <button class="connect-btn" onclick="showConnectPanel()">Connect Sheet</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('overview')" id="t-overview"><span class="tab-icon">◈</span> Overview</button>
+  <button class="tab" onclick="showTab('scoreboard')" id="t-scoreboard"><span class="tab-icon">◉</span> Agent Scoreboard</button>
+  <button class="tab" onclick="showTab('pipeline')" id="t-pipeline"><span class="tab-icon">◎</span> Pipeline</button>
+  <button class="tab" onclick="showTab('schedule')" id="t-schedule"><span class="tab-icon">◷</span> Review Schedule</button>
+  <button class="tab" onclick="showTab('reviews')" id="t-reviews"><span class="tab-icon">✎</span> Reviews</button>
+</div>
+
+<div class="date-bar" id="dateBar" style="display:none;background:var(--bg2);border-bottom:1px solid var(--rim);padding:6px 28px;display:flex;align-items:center;gap:10px;">
+  <span style="font-size:11px;color:var(--text3)">Viewing:</span>
+  <button class="date-mode-btn active" onclick="setDateMode('month',this)">Month</button>
+  <button class="date-mode-btn" onclick="setDateMode('week',this)">Week</button>
+  <button class="date-mode-btn" onclick="setDateMode('day',this)">Day</button>
+  <span style="font-size:11px;color:var(--text2);margin-left:8px" id="dateLabel"></span>
+  <select id="dateSelector" style="display:none;background:var(--surface2);border:1px solid var(--rim2);color:var(--text);font-size:11px;padding:3px 8px;border-radius:4px;margin-left:8px" onchange="selectSpecificDate(this.value)"></select>
+</div>
+
+<div class="main" id="mainContent">
+
+<!-- ── OVERVIEW ── -->
+<div class="panel active" id="panel-overview">
+  <div id="overviewContent">
+    <div class="connect-panel">
+      <div class="connect-icon">⬡</div>
+      <div class="connect-title">Connect Your Data</div>
+      <div class="connect-sub">Enter your Google Sheet ID to load live data from your Salesforce exports and EOM reports.</div>
+      <input class="connect-input" id="sheetIdInput" placeholder="Google Sheet ID" value="1PnVva42CtyN5j4v9PVeJZhLyBeDCLMSxoKO-WU_Lnbc">
+      <button class="connect-go" onclick="connectSheet()">Load Dashboard →</button>
+      <div class="connect-err" id="connectErr">Could not connect. Check the Sheet ID and make sure sharing is set to "Anyone with link."</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SCOREBOARD ── -->
+<div class="panel" id="panel-scoreboard">
+  <div class="page-hdr">
+    <div class="page-title">Agent Scoreboard</div>
+    <div class="page-sub" id="scoreboardSub">May 2026 MTD · All Divisions</div>
+  </div>
+  <div class="filter-bar">
+    <span class="filter-label">Filter:</span>
+    <select class="fsel" id="sb-div" onchange="renderScoreboard()">
+      <option value="all">All Divisions</option>
+      <option value="BLO">BLO</option>
+      <option value="CA">CA</option>
+      <option value="FL">FL</option>
+    </select>
+    <select class="fsel" id="sb-tier" onchange="renderScoreboard()">
+      <option value="all">All Tiers</option>
+      <option value="1M+">1M+</option>
+      <option value="MIX Tiers">MIX Tiers</option>
+      <option value="600-999k">600-999k</option>
+      <option value="400k-599k">400k-599k</option>
+      <option value="200-399k">200-399k</option>
+    </select>
+    <select class="fsel" id="sb-poa" onchange="renderScoreboard()">
+      <option value="all">All Agents</option>
+      <option value="POA1">POA1</option>
+      <option value="POA2">POA2</option>
+      <option value="POA3">POA3</option>
+      <option value="none">No POA</option>
+    </select>
+    <input class="fsearch" id="sb-search" placeholder="Search agent…" oninput="renderScoreboard()">
+  </div>
+  <div class="card">
+    <div class="card-hdr">
+      <span class="card-title" id="sbCount">— agents</span>
+      <span class="card-sub">Sorted by Submissions ↓ · Click headers to sort</span>
+    </div>
+    <div class="tbl-wrap"><table id="sbTable"></table></div>
+  </div>
+</div>
+
+<!-- ── PIPELINE ── -->
+<div class="panel" id="panel-pipeline">
+  <div class="page-hdr">
+    <div class="page-title">Pipeline</div>
+    <div class="page-sub">Active opportunities by stage · Days in stage flagged after 3 days</div>
+  </div>
+  <div class="filter-bar">
+    <select class="fsel" id="pl-div" onchange="renderPipeline()">
+      <option value="all">All Divisions</option>
+      <option value="BLO">BLO</option><option value="CA">CA</option><option value="FL">FL</option>
+    </select>
+    <input class="fsearch" id="pl-search" placeholder="Search agent or merchant…" oninput="renderPipeline()">
+  </div>
+  <div class="stage-grid" id="stageGrid"></div>
+  <div class="two-col">
+    <div class="card">
+      <div class="card-hdr"><span class="card-title">Funded This Month</span></div>
+      <div class="tbl-wrap"><table id="fundedTable"></table></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><span class="card-title">Agent Pipeline Summary</span></div>
+      <div class="tbl-wrap"><table id="pipelineSummaryTable"></table></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── REVIEW SCHEDULE ── -->
+<div class="panel" id="panel-schedule">
+  <div class="page-hdr">
+    <div class="page-title">Review Schedule</div>
+    <div class="page-sub">Priority-driven · Manager-aware · Toggle new hire status</div>
+  </div>
+  <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr)" id="schedKpis"></div>
+  <div class="sched-grid">
+    <div class="card">
+      <div class="card-hdr"><span class="card-title">Priority List</span></div>
+      <div class="priority-list" id="priorityList"></div>
+      <div class="nh-toggles" id="nhToggles"></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><span class="card-title">June 2026 · Review Calendar</span></div>
+      <div class="cal-wrap">
+        <div class="cal-dow" id="calDow"></div>
+        <div class="cal-days" id="calDays"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── REVIEW TAB ── -->
+<div class="panel" id="panel-reviews">
+  <div class="page-hdr">
+    <div class="page-title">Agent Reviews</div>
+    <div class="page-sub">Create reviews · Export to PDF · Track history</div>
+  </div>
+  <div class="two-col" style="align-items:start">
+
+    <!-- LEFT: New Review Form -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="card-title">New Review</span>
+        <span class="card-sub" id="reviewFormAgent">Select an agent to begin</span>
+      </div>
+      <div class="review-form">
+        <div class="review-field">
+          <div class="review-label">Agent</div>
+          <select class="agent-selector" id="reviewAgentSelect" onchange="loadAgentReview()">
+            <option value="">— Select Agent —</option>
+          </select>
+        </div>
+        <div id="reviewMetricsBlock" style="display:none">
+          <div class="review-label" style="margin-bottom:8px">Current Performance</div>
+          <div class="review-metrics-grid" id="reviewMetrics"></div>
+          <div class="review-field">
+            <div class="review-label">Review Date</div>
+            <input type="date" class="review-input" id="reviewDate" style="resize:none">
+          </div>
+          <div class="review-field">
+            <div class="review-label">Review Type</div>
+            <select class="review-input" id="reviewType" onchange="updateFollowUp()" style="resize:none">
+              <option value="Standard">Standard</option>
+              <option value="POA">POA</option>
+              <option value="Follow-Up">Follow-Up</option>
+              <option value="New Hire">New Hire</option>
+              <option value="Accelerate">Accelerate</option>
+            </select>
+          </div>
+          <div class="review-field" id="poaLevelField" style="display:none">
+            <div class="review-label">POA Level</div>
+            <select class="review-input" id="reviewPOALevel" style="resize:none">
+              <option value="1">POA1</option>
+              <option value="2">POA2</option>
+              <option value="3">POA3</option>
+            </select>
+          </div>
+          <div class="review-field">
+            <div class="review-label">Reviewer</div>
+            <input type="text" class="review-input" id="reviewReviewer" placeholder="e.g. Alex/Jon" style="resize:none">
+          </div>
+          <div class="review-field">
+            <div class="review-label">Key Metrics / Stats <span style="color:var(--text3);font-weight:400;font-size:10px">(auto-filled · editable)</span></div>
+            <textarea class="review-input" id="reviewMetricsText" rows="4" placeholder="Key performance observations..."></textarea>
+          </div>
+          <div class="review-field">
+            <div class="review-label">Topics Covered</div>
+            <textarea class="review-input" id="reviewTopics" rows="3" placeholder="e.g. *Increase contact rate&#10;*Improve qualification to increase Offers"></textarea>
+          </div>
+          <div class="review-field">
+            <div class="review-label">Additional Feedback / Corrective Action</div>
+            <textarea class="review-input" id="reviewFeedback" rows="3" placeholder="Additional notes, action items..."></textarea>
+          </div>
+          <div class="review-field">
+            <div class="review-label">Follow-Up Date</div>
+            <input type="date" class="review-input" id="reviewFollowUp" style="resize:none">
+          </div>
+          <div class="review-actions">
+            <button class="btn-primary" onclick="exportReviewPDF()">⬇ Export Review PDF</button>
+            <button class="btn-secondary" onclick="clearReviewForm()">Clear</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Review History -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="card-title">Recent Reviews</span>
+        <span class="card-sub" id="reviewHistoryCount"></span>
+      </div>
+      <div id="reviewHistory" style="max-height:600px;overflow-y:auto">
+        <div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">
+          Reviews you export will appear here during this session.<br>
+          For permanent records, paste into your Excel tracker.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────
+const SHEET_ID = '1PnVva42CtyN5j4v9PVeJZhLyBeDCLMSxoKO-WU_Lnbc';
+const TABS = {
+  leads:   'Lead Activity',
+  opps:    'Opportunity Pipeline',
+  eom:     'EOM Reports',
+  roster:  'Agent Roster',
+  livevox: 'LiveVox',
+  vaspian: 'Vaspian',
+};
+
+// Column mappings for phone system tabs
+const LV_COLS = {
+  agent: 'Agent Name', date: 'Date',
+  inCallMin: 'In Call Min', inCallPct: 'In Call %',
+  wrapupMin: 'Wrapup Min', wrapupPct: 'Wrapup %',
+  notReadyMin: 'Not Ready Min', notReadyPct: 'Not Ready %',
+  readyMin: 'Ready Min', readyPct: 'Ready %',
+  nonContacts: 'Non Contacts', totalRPCs: 'Total RPCs',
+  transfers: 'Successful Transfers'
+};
+const VA_COLS = {
+  agent: 'Agent Name', date: 'Date',
+  totalCalls: 'Total Calls', inbound: 'Inbound Calls',
+  outbound: 'Outbound Calls', talkMin: 'Talk Time Min',
+  avgHandle: 'Avg Handle Time'
+};
+
+// ── STATE ────────────────────────────────────────────────────────────────
+let DB = { leads:[], opps:[], eom:[], roster:[], livevox:[], vaspian:[] };
+let newHires = new Set();
+let sbSort = { key:'subs', dir:-1 };
+let connected = false;
+let dateMode = 'month'; // 'day' | 'week' | 'month'
+let selectedDate = null; // used for day/week mode
+
+// ── UTILS ────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const fmt$ = v => '$' + Math.round(v||0).toLocaleString();
+const fmtK = v => v >= 1000000 ? '$'+(v/1000000).toFixed(1)+'M' : v >= 1000 ? '$'+(v/1000).toFixed(0)+'K' : fmt$(v);
+const fmtPct = v => ((v||0)*100).toFixed(0)+'%';
+const fmtP1 = v => ((v||0)*100).toFixed(1)+'%';
+const safe = v => (typeof v === 'number' && isFinite(v)) ? v : 0;
+
+// ── DATE FILTERING ──────────────────────────────────────────────────────
+function parseDate(val) {
+  if (!val) return null;
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function getExportDate(row) {
+  return parseDate(row['Export Date']);
+}
+
+function filterByDate(rows, dateField) {
+  if (!rows || !rows.length) return rows;
+  const now = selectedDate || new Date();
+  return rows.filter(r => {
+    const d = getExportDate(r) || parseDate(r[dateField]);
+    if (!d) return true; // no date = include
+    if (dateMode === 'day') {
+      return d.toDateString() === now.toDateString();
+    } else if (dateMode === 'week') {
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay() + 1); // Monday
+      weekStart.setHours(0,0,0,0);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23,59,59,999);
+      return d >= weekStart && d <= weekEnd;
+    } else {
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }
+  });
+}
+
+function getDateLabel() {
+  const now = selectedDate || new Date();
+  if (dateMode === 'day') return now.toLocaleDateString('en-US', {weekday:'long', month:'short', day:'numeric'});
+  if (dateMode === 'week') {
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay() + 1);
+    const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6);
+    return `Week of ${weekStart.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${weekEnd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`;
+  }
+  return now.toLocaleDateString('en-US', {month:'long', year:'numeric'});
+}
+
+function filterByDateByField(rows, dateField) {
+  // Filter by the actual activity date (not export date)
+  if (!rows || !rows.length) return rows;
+  const now = selectedDate || new Date();
+  return rows.filter(r => {
+    const d = parseDate(r[dateField]);
+    if (!d) return true;
+    if (dateMode === 'day') return d.toDateString() === now.toDateString();
+    if (dateMode === 'week') {
+      const ws = new Date(now); ws.setDate(now.getDate() - ((now.getDay()||7)-1)); ws.setHours(0,0,0,0);
+      const we = new Date(ws); we.setDate(ws.getDate()+6); we.setHours(23,59,59,999);
+      return d >= ws && d <= we;
+    }
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+}
+
+function setDateMode(mode, btn) {
+  dateMode = mode;
+  document.querySelectorAll('.date-mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (connected) { renderOverview(); renderScoreboard(); }
+}
+
+function getAvailableDates() {
+  const dates = new Set();
+  DB.leads.forEach(r => { const d = getExportDate(r); if (d) dates.add(d.toDateString()); });
+  DB.opps.forEach(r => { const d = getExportDate(r); if (d) dates.add(d.toDateString()); });
+  return [...dates].sort().reverse();
+}
+
+// ── PHONE SYSTEM HELPERS ─────────────────────────────────────────────────
+function getAgentPhone(agentName, filteredLV, filteredVA) {
+  const lvRows = (filteredLV || DB.livevox).filter(r => r[LV_COLS.agent] === agentName);
+  const vaRows = (filteredVA || DB.vaspian).filter(r => r[VA_COLS.agent] === agentName);
+
+  const lvTalkMin   = lvRows.reduce((s,r) => s + safe(parseFloat(r[LV_COLS.inCallMin]||0)), 0);
+  const lvCalls     = lvRows.reduce((s,r) => s + safe(parseFloat(r[LV_COLS.totalRPCs]||0)), 0);
+  const lvWrapMin   = lvRows.reduce((s,r) => s + safe(parseFloat(r[LV_COLS.wrapupMin]||0)), 0);
+  const lvNotReady  = lvRows.reduce((s,r) => s + safe(parseFloat(r[LV_COLS.notReadyMin]||0)), 0);
+
+  const vaTalkMin   = vaRows.reduce((s,r) => s + safe(parseFloat(r[VA_COLS.talkMin]||0)), 0);
+  const vaCalls     = vaRows.reduce((s,r) => s + safe(parseFloat(r[VA_COLS.totalCalls]||0)), 0);
+
+  const totalTalkMin  = lvTalkMin + vaTalkMin;
+  const totalCalls    = lvCalls + vaCalls;
+  const talkMinPerHr  = totalTalkMin > 0 ? totalTalkMin / 6 : 0;
+  const avgHandle     = totalCalls > 0 ? totalTalkMin / totalCalls : 0;
+
+  // Days with data (for proper per-day average)
+  const lvDays = new Set(lvRows.map(r => r[LV_COLS.date])).size || 1;
+  const vaDays = new Set(vaRows.map(r => r[VA_COLS.date])).size || 1;
+  const days   = Math.max(lvDays, vaDays, 1);
+
+  return { lvTalkMin, vaTalkMin, totalTalkMin, totalCalls, lvCalls, vaCalls,
+           talkMinPerHr, avgHandle, lvWrapMin, lvNotReady, days,
+           talkMinPerHrPerDay: totalTalkMin / days / 6 };
+}
+
+function getPhoneTotals(filteredLV, filteredVA) {
+  const lv = filteredLV || DB.livevox;
+  const va = filteredVA || DB.vaspian;
+  const totalLVTalk  = lv.reduce((s,r) => s + safe(parseFloat(r[LV_COLS.inCallMin]||0)), 0);
+  const totalVATalk  = va.reduce((s,r) => s + safe(parseFloat(r[VA_COLS.talkMin]||0)), 0);
+  const totalLVCalls = lv.reduce((s,r) => s + safe(parseFloat(r[LV_COLS.totalRPCs]||0)), 0);
+  const totalVACalls = va.reduce((s,r) => s + safe(parseFloat(r[VA_COLS.totalCalls]||0)), 0);
+  const totalTalk    = totalLVTalk + totalVATalk;
+  const totalCalls   = totalLVCalls + totalVACalls;
+  return {
+    totalTalk, totalCalls,
+    talkMinPerHr: totalTalk / 6,
+    avgHandle: totalCalls > 0 ? totalTalk / totalCalls : 0
+  };
+}
+
+function divBadge(d) {
+  const c = d==='BLO'?'b-blo':d==='CA'?'b-ca':'b-fl';
+  return `<span class="badge ${c}">${d||'—'}</span>`;
+}
+function poaBadge(p) {
+  if (!p) return '';
+  const c = p==='POA1'?'b-poa1':p==='POA2'?'b-poa2':'b-poa3';
+  return `<span class="badge ${c}">${p}</span>`;
+}
+function nextBadge(s) {
+  if (!s||s==='STAY') return '<span class="badge b-stay">STAY</span>';
+  if (s.includes('Up')) return '<span class="badge b-up">↑ Up</span>';
+  return '<span class="badge b-down">↓ Down</span>';
+}
+function rbar(val, good, warn, max) {
+  const pct = Math.min(100, (val/(max||1))*100);
+  const color = val>=good?'g':val>=warn?'a':'r';
+  return `<div class="rbar"><div class="rbar-bg"><div class="rbar-fill ${color}" style="width:${pct}%"></div></div><span class="rbar-val">${fmtP1(val)}</span></div>`;
+}
+function goalBar(funded, goal) {
+  if (!goal) return '—';
+  const pct = Math.min(150, (funded/goal)*100);
+  const color = pct>=100?'g':pct>=50?'a':'r';
+  const textColor = pct>=100?'var(--green)':pct>=50?'var(--amber)':'var(--red)';
+  return `<div class="goal-wrap"><div class="goal-bg"><div class="goal-fill ${color}" style="width:${Math.min(100,pct)}%;background:${textColor}"></div></div><span class="goal-pct" style="color:${textColor}">${Math.round(pct)}%</span></div>`;
+}
+
+// ── SHEET FETCHING ───────────────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+  function splitRow(row) {
+    const result = []; let cur = ''; let inQ = false;
+    for (let i = 0; i < row.length; i++) {
+      const c = row[i];
+      if (c === '"' && !inQ) { inQ = true; continue; }
+      if (c === '"' && inQ && row[i+1] === '"') { cur += '"'; i++; continue; }
+      if (c === '"' && inQ) { inQ = false; continue; }
+      if (c === ',' && !inQ) { result.push(cur.trim()); cur = ''; continue; }
+      cur += c;
+    }
+    result.push(cur.trim());
+    return result;
+  }
+  const headers = splitRow(lines[0]);
+  return lines.slice(1).map(line => {
+    const vals = splitRow(line);
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = vals[i] !== undefined ? vals[i] : null; });
+    return obj;
+  }).filter(r => Object.values(r).some(v => v));
+}
+
+async function fetchTab(sheetId, tabName) {
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Cannot read tab "${tabName}" (HTTP ${res.status}). Make sure the Sheet is shared as "Anyone with the link — Viewer".`);
+  const text = await res.text();
+  if (text.includes('<!DOCTYPE') || text.includes('Sign in')) {
+    throw new Error('Sheet is not publicly accessible. In Google Sheets: Share → Change to "Anyone with the link" → Viewer → Done.');
+  }
+  return parseCSV(text);
+}
+
+// ── CONNECT ──────────────────────────────────────────────────────────────
+function showConnectPanel() {
+  showTab('overview');
+  $('overviewContent').innerHTML = `
+    <div class="connect-panel">
+      <div class="connect-icon">⬡</div>
+      <div class="connect-title">Connect Google Sheet</div>
+      <div class="connect-sub">Paste your Google Sheet ID below. Make sure sharing is set to "Anyone with the link — Viewer."</div>
+      <input class="connect-input" id="sheetIdInput" placeholder="Sheet ID" value="${SHEET_ID}">
+      <button class="connect-go" onclick="connectSheet()">Load Dashboard →</button>
+      <div class="connect-err" id="connectErr">Could not connect. Check the Sheet ID and sharing settings.</div>
+    </div>`;
+}
+
+async function connectSheet() {
+  const id = ($('sheetIdInput')||{value:SHEET_ID}).value.trim() || SHEET_ID;
+  $('overviewContent').innerHTML = `<div class="loading"><div class="spin"></div><div class="loading-text">Connecting to Google Sheets…</div></div>`;
+
+  try {
+    $('statusText').textContent = 'Loading…';
+
+    const [leads, opps, eom, roster, livevox, vaspian] = await Promise.all([
+      fetchTab(id, TABS.leads),
+      fetchTab(id, TABS.opps),
+      fetchTab(id, TABS.eom),
+      fetchTab(id, TABS.roster),
+      fetchTab(id, TABS.livevox),
+      fetchTab(id, TABS.vaspian),
+    ]);
+
+    DB.leads   = leads.filter(r => r['Lead Owner'] && r['Lead Owner'] !== 'Lead Owner');
+    DB.opps    = opps.filter(r => r['Opportunity Owner'] && r['Opportunity Owner'] !== 'Opportunity Owner');
+    DB.eom     = eom.filter(r => r['Row Labels'] || r['Agent Name']);
+    DB.roster  = roster.filter(r => r['Agent Name'] && r['Agent Name'] !== 'Agent Name' && r['Active'] === 'YES');
+    DB.livevox = livevox.filter(r => r[LV_COLS.agent] && r[LV_COLS.agent] !== 'Agent Name');
+    DB.vaspian = vaspian.filter(r => r[VA_COLS.agent] && r[VA_COLS.agent] !== 'Agent Name');
+
+    // Set new hires from roster
+    DB.roster.forEach(r => { if (r['New Hire'] === 'YES') newHires.add(r['Agent Name']); });
+
+    connected = true;
+    $('statusPill').innerHTML = `<div class="status-dot"></div><span id="statusText">${DB.roster.length} agents · Live</span>`;
+
+    // Show date bar and populate controls
+    $('dateBar').style.display = 'flex';
+    updateDateBar();
+
+    renderOverview();
+    renderScoreboard();
+    renderPipeline();
+    buildSchedule();
+    populateAgentSelector();
+
+  } catch(e) {
+    console.error(e);
+    $('overviewContent').innerHTML = `<div class="connect-panel">
+      <div class="connect-icon">⬡</div>
+      <div class="connect-title">Connection Failed</div>
+      <div class="connect-sub">Most common fix: in Google Sheets click <strong>Share</strong> → <strong>Change to anyone with the link</strong> → set to <strong>Viewer</strong> → Done. Then try again.</div>
+      <input class="connect-input" id="sheetIdInput" placeholder="Sheet ID" value="${id}">
+      <button class="connect-go" onclick="connectSheet()">Try Again →</button>
+      <div class="connect-err" style="display:block;text-align:left;padding:10px;background:rgba(248,113,113,0.08);border-radius:6px;margin-top:8px"><strong>Detail:</strong> ${e.message}</div>
+    </div>`;
+    $('statusText').textContent = 'Connection failed';
+  }
+}
+
+// ── TAB NAV ──────────────────────────────────────────────────────────────
+function showTab(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  $('panel-'+id).classList.add('active');
+  $('t-'+id).classList.add('active');
+}
+
+// ── ROSTER HELPERS ───────────────────────────────────────────────────────
+function getAgent(name) {
+  return DB.roster.find(r => r['Agent Name'] === name) || {};
+}
+
+function getAgentLeads(name) {
+  return DB.leads.filter(r => r['Lead Owner'] === name);
+}
+
+function getAgentOpps(name) {
+  return DB.opps.filter(r => r['Opportunity Owner'] === name);
+}
+
+// ── OVERVIEW ─────────────────────────────────────────────────────────────
+function renderOverview() {
+  // Apply date filter
+  const filteredLeads = filterByDate(DB.leads, 'Export Date');
+  const filteredOpps  = filterByDate(DB.opps, 'Export Date');
+  const filteredLV    = filterByDateByField(DB.livevox, LV_COLS.date);
+  const filteredVA    = filterByDateByField(DB.vaspian, VA_COLS.date);
+  updateDateBar();
+
+  // Aggregate from leads
+  const irpcTotal = filteredLeads.filter(r => r['Initial Contact']).length;
+  const subTotal  = filteredLeads.filter(r => r['Submission Date']).length;
+  const ttmTotal  = filteredLeads.filter(r => r['Lead Status'] === 'TT MERCHANT-APP SENT').length;
+
+  // Aggregate from opps
+  const funded = filteredOpps.filter(r => r['Stage'] === 'FUNDED');
+  const fundedTotal = funded.reduce((s,r) => s + safe(r['Funded $']), 0);
+  const fundedUnits = funded.length;
+  const active  = filteredOpps.filter(r => r['Stage'] !== 'FUNDED' && r['Stage'] !== 'REVISIT');
+  const offersTotal = DB.opps.reduce((s,r) => s + safe(r['# of Offers']), 0);
+
+  // Division breakdown
+  const divs = ['BLO','CA','FL'];
+  const divColors = {BLO:'var(--primary)',CA:'#60a5fa',FL:'var(--green)'};
+
+  // Phone totals
+  const phoneTotals = getPhoneTotals(ovFilteredLV, ovFilteredVA);
+  const poaCount = DB.roster.filter(r=>(r['POA Status']||r['POA']||'')).length;
+
+  $('overviewContent').innerHTML = `
+    <div class="page-hdr" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <div class="page-title">Overview</div>
+        <div class="page-sub">${getDateLabel()} · All Divisions · ${filteredLeads.length.toLocaleString()} lead touches · ${filteredOpps.length} opportunities</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--text3)">Filter:</span>
+        <select class="fsel" id="ov-div" onchange="filterOverview()">
+          <option value="all">All Divisions</option>
+          <option value="BLO">BLO</option><option value="CA">CA</option><option value="FL">FL</option>
+        </select>
+        <select class="fsel" id="ov-agent" onchange="filterOverview()" style="max-width:160px">
+          <option value="all">All Agents</option>
+          ${DB.roster.map(a=>`<option value="${a['Agent Name']}">${a['Agent Name']}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">Initial RPCs</div><div class="kpi-val">${irpcTotal.toLocaleString()}</div><div class="kpi-foot">First real contacts</div></div>
+      <div class="kpi amber"><div class="kpi-label">TT Merchant Sent</div><div class="kpi-val amber">${ttmTotal.toLocaleString()}</div><div class="kpi-foot">Pre-app pipeline</div></div>
+      <div class="kpi amber"><div class="kpi-label">Submissions</div><div class="kpi-val amber">${oppTotal.toLocaleString()}</div><div class="kpi-foot">Entered pipeline</div></div>
+      <div class="kpi"><div class="kpi-label">Active Deals</div><div class="kpi-val">${active.length}</div><div class="kpi-foot">In pipeline now</div></div>
+      <div class="kpi green"><div class="kpi-label">New Units</div><div class="kpi-val green">${fundedUnits}</div><div class="kpi-foot">Funded this period</div></div>
+      <div class="kpi green"><div class="kpi-label">Funded $</div><div class="kpi-val green" style="font-size:${fundedTotal>0?'20':'26'}px">${fundedTotal>0?fmtK(fundedTotal):'See Pipeline'}</div><div class="kpi-foot">${fundedTotal>0?'Total funded':'Track in Pipeline tab'}</div></div>
+      <div class="kpi"><div class="kpi-label">Total Calls</div><div class="kpi-val white">${phoneTotals.totalCalls.toLocaleString()}</div><div class="kpi-foot">LV + Vaspian combined</div></div>
+      <div class="kpi"><div class="kpi-label">Talk Min / Hr</div><div class="kpi-val" style="color:var(--primary)">${phoneTotals.talkMinPerHr.toFixed(2)}</div><div class="kpi-foot">Total talk ÷ 6hrs</div></div>
+      <div class="kpi"><div class="kpi-label">Avg Handle Time</div><div class="kpi-val" style="color:var(--text2);font-size:20px">${phoneTotals.avgHandle.toFixed(2)}<span style="font-size:12px">min</span></div><div class="kpi-foot">Talk min ÷ calls</div></div>
+      <div class="kpi"><div class="kpi-label">Agents Active</div><div class="kpi-val white">${DB.roster.length}</div><div class="kpi-foot">${poaCount} on POA</div></div>
+    </div>
+
+    <div class="funnel" id="funnelBlock"></div>
+    <div class="div-grid" id="divBlock"></div>
+    <div class="alert-grid" id="alertBlock"></div>
+  `;
+
+  // Phone totals for this filter context
+  const ovFilteredLV = filterByDateByField(DB.livevox, LV_COLS.date);
+  const ovFilteredVA = filterByDateByField(DB.vaspian, VA_COLS.date);
+
+  // Funnel
+  const oppTotal = filteredOpps.length;
+  const offerCount = filteredOpps.filter(r => ['OFFER','CONTRACT','PRE-FUND','FUNDED'].includes(r['Stage'])).length;
+  const sub2off = offerCount > 0 && oppTotal > 0 ? offerCount/oppTotal : 0;
+  const off2fund = fundedUnits > 0 && offerCount > 0 ? fundedUnits/offerCount : 0;
+
+  $('funnelBlock').innerHTML = `
+    <div class="funnel-step"><div class="funnel-label">Initial RPCs</div><div class="funnel-val">${irpcTotal.toLocaleString()}</div><div class="funnel-rate">Real first contacts</div></div>
+    <div class="funnel-step"><div class="funnel-label">TT Merchant</div><div class="funnel-val amber">${ttmTotal.toLocaleString()}</div><div class="funnel-rate">${irpcTotal>0?fmtPct(ttmTotal/irpcTotal):'—'} of IRPCs</div></div>
+    <div class="funnel-step"><div class="funnel-label">Submissions</div><div class="funnel-val amber">${oppTotal.toLocaleString()}</div><div class="funnel-rate">Entered pipeline</div></div>
+    <div class="funnel-step"><div class="funnel-label">Offers</div><div class="funnel-val">${offerCount.toLocaleString()}</div><div class="funnel-rate"><em>${fmtPct(sub2off)}</em> of subs</div></div>
+    <div class="funnel-step"><div class="funnel-label">Funded</div><div class="funnel-val green">${fundedUnits}</div><div class="funnel-rate"><em>${fmtPct(off2fund)}</em> of offers</div></div>
+  `;
+
+  // Division cards
+  $('divBlock').innerHTML = divs.map(div => {
+    const dLeads = filteredLeads.filter(r => r['Division'] === div);
+    const dOpps  = filteredOpps.filter(r => {
+      const ag = getAgent(r['Opportunity Owner']);
+      return ag['Division'] === div;
+    });
+    const dFunded = dOpps.filter(r => r['Stage'] === 'FUNDED');
+    const dActive = dOpps.filter(r => r['Stage'] !== 'FUNDED');
+    const dFund$  = dFunded.reduce((s,r) => s+safe(r['Funded $']),0);
+    const dIrpc   = dLeads.filter(r => r['Initial Contact']).length;
+    const agents  = DB.roster.filter(r => r['Division'] === div).length;
+    return `<div class="div-card">
+      <div class="div-name">${divBadge(div)} <span style="color:${divColors[div]}">${div}</span> <span style="color:var(--text3);font-size:11px;font-weight:400">${agents} agents</span></div>
+      <div class="div-stat"><span class="div-stat-label">Initial RPCs</span><span class="div-stat-val" style="color:var(--primary)">${dIrpc.toLocaleString()}</span></div>
+      <div class="div-stat"><span class="div-stat-label">Active Deals</span><span class="div-stat-val">${dActive.length}</span></div>
+      <div class="div-stat"><span class="div-stat-label">Funded Units</span><span class="div-stat-val" style="color:var(--green)">${dFunded.length}</span></div>
+      <div class="div-stat"><span class="div-stat-label">Funded $</span><span class="div-stat-val" style="color:var(--green)">${fmtK(dFund$)}</span></div>
+    </div>`;
+  }).join('');
+
+  // Alerts
+  const alerts = [];
+  const poa2 = DB.roster.filter(r => r['POA Status'] === 'POA2' || r['POA'] === 'POA2');
+  const poa3 = DB.roster.filter(r => r['POA Status'] === 'POA3' || r['POA'] === 'POA3');
+  if (poa2.length) alerts.push({type:'danger', title:'POA2 — Weekly Reviews Required', body: poa2.map(r=>`<strong>${r['Agent Name']}</strong>`).join(', ')});
+  if (poa3.length) alerts.push({type:'danger', title:'POA3 — Weekly Reviews Required', body: poa3.map(r=>`<strong>${r['Agent Name']}</strong>`).join(', ')});
+  const moveDown = DB.roster.filter(r => (r['Next Month Suggestions']||'').includes('Down'));
+  if (moveDown.length) alerts.push({type:'warn', title:'Trending Down — Biweekly Reviews', body: moveDown.map(r=>`<strong>${r['Agent Name']}</strong>`).join(', ')});
+  const topFunded = [...funded].sort((a,b) => safe(b['Funded $'])-safe(a['Funded $'])).slice(0,3);
+  if (topFunded.length) alerts.push({type:'good', title:'Top Funded This Month', body: topFunded.map(r=>`<strong>${r['Opportunity Owner']}</strong> ${fmtK(safe(r['Funded $']))}`).join(' · ')});
+
+  $('alertBlock').innerHTML = alerts.map(a => `
+    <div class="alert-card ${a.type==='danger'?'danger':a.type==='good'?'good':''}">
+      <div class="alert-ttl">${a.title}</div>
+      <div class="alert-body">${a.body}</div>
+    </div>`).join('');
+}
+
+function filterOverview() {
+  // Re-render overview with division/agent filter applied
+  // We rebuild the funnel and div cards based on filter
+  const divF   = ($('ov-div')||{value:'all'}).value;
+  const agentF = ($('ov-agent')||{value:'all'}).value;
+
+  const filteredLeads = filterByDate(
+    agentF !== 'all' ? DB.leads.filter(r=>r['Lead Owner']===agentF) :
+    divF !== 'all'   ? DB.leads.filter(r=>r['Division']===divF) : DB.leads, 'Export Date');
+  const filteredOpps = filterByDate(
+    agentF !== 'all' ? DB.opps.filter(r=>r['Opportunity Owner']===agentF) :
+    divF !== 'all'   ? DB.opps.filter(r=>(getAgent(r['Opportunity Owner'])['Division']||'')=== divF) : DB.opps, 'Export Date');
+  const filteredLV = filterByDateByField(
+    agentF !== 'all' ? DB.livevox.filter(r=>r[LV_COLS.agent]===agentF) :
+    divF !== 'all'   ? DB.livevox.filter(r=>(getAgent(r[LV_COLS.agent])['Division']||'')=== divF) : DB.livevox, LV_COLS.date);
+  const filteredVA = filterByDateByField(
+    agentF !== 'all' ? DB.vaspian.filter(r=>r[VA_COLS.agent]===agentF) :
+    divF !== 'all'   ? DB.vaspian.filter(r=>(getAgent(r[VA_COLS.agent])['Division']||'')=== divF) : DB.vaspian, VA_COLS.date);
+
+  // Recompute and update KPI values
+  const irpc = filteredLeads.filter(r=>r['Initial Contact']).length;
+  const ttm  = filteredLeads.filter(r=>r['Lead Status']==='TT MERCHANT-APP SENT').length;
+  const opp  = filteredOpps.length;
+  const funded = filteredOpps.filter(r=>r['Stage']==='FUNDED');
+  const fund$ = funded.reduce((s,r)=>s+safe(r['Funded $']),0);
+  const active = filteredOpps.filter(r=>r['Stage']!=='FUNDED'&&r['Stage']!=='REVISIT').length;
+  const phone = getPhoneTotals(filteredLV, filteredVA);
+
+  // Update KPI cards by re-querying rendered DOM
+  const cards = document.querySelectorAll('.kpi .kpi-val');
+  if (cards.length >= 9) {
+    cards[0].textContent = irpc.toLocaleString();
+    cards[1].textContent = ttm.toLocaleString();
+    cards[2].textContent = opp.toLocaleString();
+    cards[3].textContent = active.toLocaleString();
+    cards[4].textContent = funded.length;
+    cards[5].textContent = fund$>0?fmtK(fund$):'See Pipeline';
+    cards[6].textContent = phone.totalCalls.toLocaleString();
+    cards[7].textContent = phone.talkMinPerHr.toFixed(2);
+    cards[8].textContent = phone.avgHandle.toFixed(2);
+  }
+}
+
+// ── SCOREBOARD ───────────────────────────────────────────────────────────
+function renderScoreboard() {
+  if (!connected) return;
+  const divF  = $('sb-div').value;
+  const tierF = $('sb-tier').value;
+  const poaF  = $('sb-poa').value;
+  const srch  = $('sb-search').value.toLowerCase();
+
+  const agents = DB.roster.filter(r => {
+    if (divF  !== 'all' && r['Division'] !== divF) return false;
+    if (tierF !== 'all' && r['Tier'] !== tierF) return false;
+    const poa = r['POA Status'] || r['POA'] || '';
+    if (poaF === 'none' && poa) return false;
+    if (poaF !== 'all' && poaF !== 'none' && poa !== poaF) return false;
+    if (srch && !r['Agent Name'].toLowerCase().includes(srch)) return false;
+    return true;
+  });
+
+  // Build metrics per agent
+  const rows = agents.map(a => {
+    const name  = a['Agent Name'];
+    const leads = filterByDate(getAgentLeads(name), 'Export Date');
+    const opps  = filterByDate(getAgentOpps(name), 'Export Date');
+
+    const irpc   = leads.filter(r => r['Initial Contact']).length;
+    const ttm    = leads.filter(r => r['Lead Status'] === 'TT MERCHANT-APP SENT').length;
+    const subLd  = leads.filter(r => r['Submission Date']).length;
+
+    const subs   = opps.length;
+    const offers = opps.filter(r => ['OFFER','CONTRACT','PRE-FUND','FUNDED'].includes(r['Stage'])).length;
+    const funded = opps.filter(r => r['Stage'] === 'FUNDED');
+    const fund$  = funded.reduce((s,r) => s+safe(r['Funded $']),0);
+    const units  = funded.length;
+    const offerN = opps.reduce((s,r) => s+safe(r['# of Offers']),0);
+    const avgOff = offerN > 0 && units > 0 ? fund$/units : 0;
+
+    const subPerIRPC  = irpc > 0 ? subs/irpc : 0;
+    const offerPerSub = subs > 0 ? offers/subs : 0;
+    const goal = safe(a['Monthly Goal $'] || a['Goals'] || 0);
+    const goalAtt = goal > 0 ? fund$/goal : 0;
+    const poa  = (a['POA Status'] || a['POA'] || '').toString().trim();
+    const next = a['Next Month Suggestions'] || 'STAY';
+    const tier = a['Tier'] || '';
+
+    // Phone data for this agent
+    const phone = getAgentPhone(name);
+    const talkMinPerHr = phone.talkMinPerHr;
+    const totalCalls   = phone.totalCalls;
+    const avgHandle    = phone.avgHandle;
+
+    return { name, div: a['Division']||'', tier, poa, next,
+             irpc, ttm, subs, offers, units, fund$, avgOff, offerN,
+             subPerIRPC, offerPerSub, goal, goalAtt,
+             talkMinPerHr, totalCalls, avgHandle,
+             isNH: newHires.has(name) };
+  });
+
+  // Sort
+  rows.sort((a,b) => {
+    const av = a[sbSort.key] ?? 0;
+    const bv = b[sbSort.key] ?? 0;
+    if (typeof av === 'string') return sbSort.dir * av.localeCompare(bv);
+    return sbSort.dir * (av-bv);
+  });
+
+  $('sbCount').textContent = `${rows.length} agents`;
+
+  const thead = `<thead><tr>
+    <th onclick="sortSB('name',this)">Agent</th>
+    <th onclick="sortSB('div',this)">Div</th>
+    <th onclick="sortSB('tier',this)">Tier</th>
+    <th>POA</th>
+    <th onclick="sortSB('irpc',this)">IRPCs</th>
+    <th onclick="sortSB('subs',this)" title="Subs / Offers / New Units">Subs · Offers · Units</th>
+    <th onclick="sortSB('goalAtt',this)">vs Goal</th>
+    <th onclick="sortSB('subPerIRPC',this)">Sub/IRPC</th>
+    <th onclick="sortSB('offerPerSub',this)">Offer/Sub</th>
+    <th onclick="sortSB('avgOff',this)">Avg Deal $</th>
+    <th onclick="sortSB('talkMinPerHr',this)">Talk Min/Hr</th>
+    <th onclick="sortSB('totalCalls',this)">Calls</th>
+    <th>Trajectory</th>
+  </tr></thead>`;
+
+  const tbody = `<tbody>${rows.map(r => {
+    const talkColor = r.talkMinPerHr >= 8 ? 'var(--green)' : r.talkMinPerHr >= 5 ? 'var(--amber)' : r.talkMinPerHr > 0 ? 'var(--red)' : 'var(--text3)';
+    return `<tr>
+      <td style="font-weight:600">${r.name}${r.isNH?` <span class="badge b-new" style="font-size:9px">NEW</span>`:''}</td>
+      <td>${divBadge(r.div)}</td>
+      <td><span style="font-size:11px;color:var(--text2)">${r.tier}</span></td>
+      <td>${poaBadge(r.poa)}</td>
+      <td class="num" style="color:var(--primary)">${r.irpc}</td>
+      <td>
+        <div class="hero-nums">
+          <div class="hero-num"><span class="hero-n amber">${r.subs}</span><span class="hero-l">Subs</span></div>
+          <div class="hero-num"><span class="hero-n">${r.offers}</span><span class="hero-l">Off</span></div>
+          <div class="hero-num"><span class="hero-n green">${r.units}</span><span class="hero-l">Units</span></div>
+        </div>
+      </td>
+      <td>${goalBar(r.fund$, r.goal)}</td>
+      <td>${rbar(r.subPerIRPC, 0.4, 0.2, 1)}</td>
+      <td>${rbar(r.offerPerSub, 0.6, 0.35, 1)}</td>
+      <td class="num" style="color:var(--text2)">${r.avgOff > 0 ? fmtK(r.avgOff) : '—'}</td>
+      <td class="num" style="color:${talkColor};font-weight:${r.talkMinPerHr>0?'600':'400'}">${r.talkMinPerHr > 0 ? r.talkMinPerHr.toFixed(2) : '—'}</td>
+      <td class="num">${r.totalCalls > 0 ? r.totalCalls.toLocaleString() : '—'}</td>
+      <td>${nextBadge(r.next)}</td>
+    </tr>`;
+  }).join('')}</tbody>`;
+
+  $('sbTable').innerHTML = thead + tbody;
+}
+
+function sortSB(key, th) {
+  sbSort = { key, dir: sbSort.key===key ? -sbSort.dir : -1 };
+  document.querySelectorAll('#sbTable thead th').forEach(t => t.classList.remove('asc','desc'));
+  th.classList.add(sbSort.dir===1?'asc':'desc');
+  renderScoreboard();
+}
+
+// ── PIPELINE ─────────────────────────────────────────────────────────────
+function renderPipeline() {
+  if (!connected) return;
+  const divF  = $('pl-div').value;
+  const srch  = $('pl-search').value.toLowerCase();
+
+  const stages = ['SUBMISSION','UNDERWRITE','OFFER','CONTRACT','PRE-FUND'];
+  const stageColors = {
+    SUBMISSION:'var(--primary)', UNDERWRITE:'var(--text2)',
+    OFFER:'var(--amber)', CONTRACT:'#60a5fa', 'PRE-FUND':'var(--purple)'
+  };
+
+  // Filter opps
+  let opps = DB.opps.filter(r => r['Stage'] !== 'FUNDED');
+  if (divF !== 'all') opps = opps.filter(r => (getAgent(r['Opportunity Owner'])['Division']||'') === divF);
+  if (srch) opps = opps.filter(r => (r['Opportunity Owner']||'').toLowerCase().includes(srch) || (r['Opportunity Name']||'').toLowerCase().includes(srch));
+
+  // Parse merchant name from opp name (format: "Merchant - date - #")
+  function merchant(oppName) {
+    if (!oppName) return '—';
+    const parts = oppName.split(' - ');
+    return parts[0] || oppName;
+  }
+
+  function daysInStage(opp) {
+    const mod = opp['Last Modified Date'];
+    if (!mod) return 0;
+    const d = new Date(mod);
+    const now = new Date();
+    return Math.floor((now - d) / 86400000);
+  }
+
+  // Render stage columns
+  $('stageGrid').innerHTML = stages.map(stage => {
+    const deals = opps.filter(r => r['Stage'] === stage);
+    const color = stageColors[stage];
+    return `<div class="stage-col">
+      <div class="stage-hdr" style="color:${color}">
+        <span>${stage}</span>
+        <span style="background:rgba(255,255,255,0.06);padding:1px 7px;border-radius:20px;font-size:10px;color:var(--text2)">${deals.length}</span>
+      </div>
+      <div class="stage-body">
+        ${deals.length === 0 ? `<div style="padding:12px;text-align:center;color:var(--text3);font-size:11px">No deals</div>` :
+          deals.map(r => {
+            const days = daysInStage(r);
+            const daysCls = days >= 5 ? 'danger' : days >= 3 ? 'warn' : '';
+            const daysLabel = days > 0 ? `${days}d` : 'Today';
+            return `<div class="stage-deal">
+              <div class="stage-merchant" title="${r['Opportunity Name']||''}">${merchant(r['Opportunity Name'])}</div>
+              <div class="stage-agent">${r['Opportunity Owner']||'—'}</div>
+              <div class="stage-days ${daysCls}">${daysLabel} in stage</div>
+            </div>`;
+          }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Funded table
+  let funded = DB.opps.filter(r => r['Stage'] === 'FUNDED');
+  if (divF !== 'all') funded = funded.filter(r => (getAgent(r['Opportunity Owner'])['Division']||'') === divF);
+  if (srch) funded = funded.filter(r => (r['Opportunity Owner']||'').toLowerCase().includes(srch));
+  funded.sort((a,b) => safe(b['Funded $'])-safe(a['Funded $']));
+
+  $('fundedTable').innerHTML = `
+    <thead><tr><th>Merchant</th><th>Agent</th><th>Funded $</th><th>Funded Date</th></tr></thead>
+    <tbody>${funded.length === 0 ? `<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:20px">No funded deals yet</td></tr>` :
+      funded.map(r => `<tr>
+        <td style="font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis">${merchant(r['Opportunity Name'])}</td>
+        <td>${r['Opportunity Owner']||'—'}</td>
+        <td class="currency" style="font-weight:700">${fmtK(safe(r['Funded $']))}</td>
+        <td class="muted">${r['Funded Date']||'—'}</td>
+      </tr>`).join('')}
+    </tbody>`;
+
+  // Pipeline summary per agent
+  const agentPipe = {};
+  DB.opps.forEach(r => {
+    const a = r['Opportunity Owner'];
+    if (!a) return;
+    if (!agentPipe[a]) agentPipe[a] = {subs:0,offers:0,contracts:0,funded:0,fund$:0};
+    agentPipe[a].subs++;
+    if (['OFFER','CONTRACT','PRE-FUND','FUNDED'].includes(r['Stage'])) agentPipe[a].offers++;
+    if (['CONTRACT','PRE-FUND'].includes(r['Stage'])) agentPipe[a].contracts++;
+    if (r['Stage']==='FUNDED') { agentPipe[a].funded++; agentPipe[a].fund$ += safe(r['Funded $']); }
+  });
+
+  const pipeRows = Object.entries(agentPipe)
+    .filter(([a]) => divF==='all' || (getAgent(a)['Division']||'')=== divF)
+    .sort((a,b) => b[1].fund$ - a[1].fund$);
+
+  $('pipelineSummaryTable').innerHTML = `
+    <thead><tr><th>Agent</th><th>Div</th><th>In Pipeline</th><th>At Offer+</th><th>Funded</th><th>Funded $</th></tr></thead>
+    <tbody>${pipeRows.map(([a,d]) => `<tr>
+      <td style="font-weight:600">${a}</td>
+      <td>${divBadge(getAgent(a)['Division']||'')}</td>
+      <td class="num">${d.subs}</td>
+      <td class="num" style="color:var(--amber)">${d.offers}</td>
+      <td class="num" style="color:var(--green)">${d.funded}</td>
+      <td class="currency">${d.fund$ > 0 ? fmtK(d.fund$) : '—'}</td>
+    </tr>`).join('')}
+    </tbody>`;
+}
+
+// ── REVIEW SCHEDULE ───────────────────────────────────────────────────────
+function getPriority(a) {
+  const poa  = a['POA Status'] || a['POA'] || '';
+  const next = a['Next Month Suggestions'] || 'STAY';
+  const goal = safe(a['Monthly Goal $'] || a['Goals'] || 0);
+  const name = a['Agent Name'];
+  const isNH = newHires.has(name);
+
+  // Get funded $ for this agent
+  const fund$ = DB.opps.filter(r => r['Opportunity Owner']===name && r['Stage']==='FUNDED')
+                        .reduce((s,r) => s+safe(r['Funded $']),0);
+  const underGoal = goal > 0 && fund$ < goal * 0.5;
+  const overGoal  = goal > 0 && fund$ >= goal * 1.2;
+
+  const flags = [];
+  if (poa==='POA2'||poa==='POA3') flags.push(poa);
+  if (isNH) flags.push('NEW HIRE');
+  if (poa==='POA1') flags.push('POA1');
+  if (next.includes('Down')) flags.push('TRENDING DOWN');
+  if (underGoal) flags.push('UNDER 50% GOAL');
+  if (overGoal) flags.push('120%+ GOAL');
+
+  let freq = 'monthly';
+  if (poa==='POA2'||poa==='POA3'||isNH) freq = 'weekly';
+  else if (poa==='POA1'||next.includes('Down')||underGoal) freq = 'biweekly';
+  else if (overGoal) freq = 'accelerate';
+
+  return { flags, freq, fund$, goal };
+}
+
+function buildSchedule() {
+  if (!connected) return;
+
+  const agents = DB.roster.map(a => ({ a, ...getPriority(a) }))
+    .sort((x,y) => {
+      const o = {weekly:0,biweekly:1,accelerate:2,monthly:3};
+      return o[x.freq]-o[y.freq] || x.a['Agent Name'].localeCompare(y.a['Agent Name']);
+    });
+
+  const counts = {weekly:0,biweekly:0,accelerate:0,monthly:0};
+  agents.forEach(x => counts[x.freq]++);
+
+  $('schedKpis').innerHTML = `
+    <div class="kpi red"><div class="kpi-label">Weekly</div><div class="kpi-val" style="color:var(--red)">${counts.weekly}</div><div class="kpi-foot">POA2/3 + New Hires</div></div>
+    <div class="kpi amber"><div class="kpi-label">Biweekly</div><div class="kpi-val amber">${counts.biweekly}</div><div class="kpi-foot">POA1 + Trending Down</div></div>
+    <div class="kpi green"><div class="kpi-label">Accelerate</div><div class="kpi-val green">${counts.accelerate}</div><div class="kpi-foot">120%+ goal</div></div>
+    <div class="kpi"><div class="kpi-label">Monthly</div><div class="kpi-val">${counts.monthly}</div><div class="kpi-foot">Standard cadence</div></div>
+    <div class="kpi purple"><div class="kpi-label">New Hires</div><div class="kpi-val" style="color:var(--purple)">${newHires.size}</div><div class="kpi-foot">Manually flagged</div></div>
+  `;
+
+  // Priority list
+  $('priorityList').innerHTML = agents.map(({a, flags, freq, fund$, goal}) => {
+    const freqCls = {weekly:'freq-weekly',biweekly:'freq-biweekly',accelerate:'freq-accel',monthly:'freq-monthly'}[freq];
+    const freqLabel = {weekly:'WEEKLY',biweekly:'BIWEEKLY',accelerate:'ACCELERATE',monthly:'MONTHLY'}[freq];
+    const mgr = a['Manager'] || a['Closer Oversight'] || '—';
+    return `<div class="priority-row">
+      <div style="flex:1;min-width:0">
+        <div class="priority-agent">${a['Agent Name']}</div>
+        <div class="priority-meta">${a['Division']||''} · ${a['Tier']||''} · ${mgr}</div>
+        <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap">
+          ${flags.map(f => {
+            const fc = f==='POA2'||f==='POA3'?'b-poa2':f==='POA1'?'b-poa1':f==='NEW HIRE'?'b-new':f==='TRENDING DOWN'?'b-down':f==='120%+ GOAL'?'b-up':'b-goal-lo';
+            return `<span class="badge ${fc}" style="font-size:9px">${f}</span>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="priority-freq ${freqCls}">${freqLabel}</div>
+    </div>`;
+  }).join('');
+
+  // New hire toggles
+  $('nhToggles').innerHTML = `<span style="font-size:10px;color:var(--text3);width:100%;margin-bottom:4px">Toggle New Hire status:</span>` +
+    DB.roster.map(a => `<button class="nh-btn ${newHires.has(a['Agent Name'])?'on':''}" onclick="toggleNH('${a['Agent Name']}',this)">${a['Agent Name'].split(' ')[0]}</button>`).join('');
+
+  renderCalendar(agents);
+}
+
+function toggleNH(name, btn) {
+  if (newHires.has(name)) newHires.delete(name);
+  else newHires.add(name);
+  btn.classList.toggle('on');
+  buildSchedule();
+}
+
+function renderCalendar(agents) {
+  // June 2026: starts on Monday (day 1)
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  $('calDow').innerHTML = days.map(d => `<div class="cal-dow-hdr">${d}</div>`).join('');
+
+  const june1Day = 1; // Monday
+  const daysInJune = 30;
+  const todayDate = 1; // June 1 2026
+
+  // Assign reviews
+  const weeklyAgents   = agents.filter(x => x.freq === 'weekly');
+  const biweeklyAgents = agents.filter(x => x.freq === 'biweekly');
+  const monthlyAgents  = agents.filter(x => x.freq === 'monthly');
+
+  // Business days
+  const bizDays = [];
+  for (let d = 1; d <= daysInJune; d++) {
+    const dow = (june1Day + d - 1) % 7;
+    if (dow >= 1 && dow <= 5) bizDays.push(d);
+  }
+  const mondays = bizDays.filter(d => (june1Day + d - 1) % 7 === 1);
+
+  const dayMap = {};
+  // Weekly — each Monday of month
+  weeklyAgents.forEach((x,i) => {
+    mondays.forEach(mon => {
+      const day = Math.min(daysInJune, mon + (i % 4));
+      if (!dayMap[day]) dayMap[day] = [];
+      dayMap[day].push({name: x.a['Agent Name'].split(' ')[0], freq:'weekly'});
+    });
+  });
+  // Biweekly — weeks 1 & 3
+  const biDays = [mondays[0], mondays[2]].filter(Boolean);
+  biweeklyAgents.forEach((x,i) => {
+    biDays.forEach(mon => {
+      const day = Math.min(daysInJune, mon + 1 + (i % 3));
+      if (!dayMap[day]) dayMap[day] = [];
+      dayMap[day].push({name: x.a['Agent Name'].split(' ')[0], freq:'biweekly'});
+    });
+  });
+  // Monthly — spread evenly
+  monthlyAgents.forEach((x,i) => {
+    const idx = Math.floor(i / Math.max(monthlyAgents.length,1) * bizDays.length);
+    const day = bizDays[Math.min(idx, bizDays.length-1)];
+    if (!dayMap[day]) dayMap[day] = [];
+    dayMap[day].push({name: x.a['Agent Name'].split(' ')[0], freq:'monthly'});
+  });
+
+  // Render cells
+  const cells = [];
+  for (let i = 0; i < june1Day; i++) cells.push('<div class="cal-day empty"></div>');
+  for (let d = 1; d <= daysInJune; d++) {
+    const dow = (june1Day + d - 1) % 7;
+    const isWE = dow === 0 || dow === 6;
+    const isToday = d === todayDate;
+    const reviews = dayMap[d] || [];
+    const maxShow = 3;
+    const extra = reviews.length > maxShow ? reviews.length - maxShow : 0;
+    cells.push(`<div class="cal-day${isWE?' weekend':''}${isToday?' today':''}">
+      <div class="cal-day-num">${d}</div>
+      ${reviews.slice(0,maxShow).map(r => `<div class="cal-chip ${r.freq}" title="${r.name}">${r.name}</div>`).join('')}
+      ${extra > 0 ? `<div style="font-size:8px;color:var(--text3)">+${extra}</div>` : ''}
+    </div>`);
+  }
+  $('calDays').innerHTML = cells.join('');
+}
+
+// ── DATE BAR HELPERS ─────────────────────────────────────────────────────
+function selectSpecificDate(val) {
+  selectedDate = val ? new Date(val) : null;
+  if (connected) { renderOverview(); renderScoreboard(); }
+}
+
+function updateDateBar() {
+  $('dateLabel').textContent = getDateLabel();
+  // Populate date selector for day mode
+  const sel = $('dateSelector');
+  sel.innerHTML = '<option value="">Latest</option>';
+  getAvailableDates().forEach(ds => {
+    const opt = document.createElement('option');
+    opt.value = ds; opt.textContent = new Date(ds).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    sel.appendChild(opt);
+  });
+  sel.style.display = dateMode === 'day' ? 'block' : 'none';
+}
+
+// Override setDateMode to also update bar
+const _setDateMode = setDateMode;
+
+// ── REVIEW FORM ───────────────────────────────────────────────────────────
+let sessionReviews = [];
+
+function populateAgentSelector() {
+  const sel = $('reviewAgentSelect');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Select Agent —</option>';
+  const sorted = [...DB.roster].sort((a,b) => (a['Agent Name']||'').localeCompare(b['Agent Name']||''));
+  sorted.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a['Agent Name'];
+    opt.textContent = `${a['Agent Name']} (${a['Division']||''})`;
+    sel.appendChild(opt);
+  });
+}
+
+function loadAgentReview() {
+  const name = $('reviewAgentSelect').value;
+  if (!name) { $('reviewMetricsBlock').style.display = 'none'; return; }
+
+  const agent = getAgent(name);
+  const leads = getAgentLeads(name);
+  const opps  = getAgentOpps(name);
+
+  const irpc  = leads.filter(r => r['Initial Contact']).length;
+  const subs  = opps.length;
+  const offers = opps.filter(r => ['OFFER','CONTRACT','PRE-FUND','FUNDED'].includes(r['Stage'])).length;
+  const funded = opps.filter(r => r['Stage']==='FUNDED');
+  const fund$ = funded.reduce((s,r) => s+safe(r['Funded $']),0);
+  const units = funded.length;
+  const subPerIRPC  = irpc > 0 ? (subs/irpc) : 0;
+  const offerPerSub = subs > 0 ? (offers/subs) : 0;
+  const goal  = safe(agent['Monthly Goal $'] || agent['Goals'] || 0);
+  const goalAtt = goal > 0 ? (fund$/goal)*100 : 0;
+  const poa   = agent['POA Status'] || agent['POA'] || '';
+  const next  = agent['Next Month Suggestions'] || 'STAY';
+  const tier  = agent['Tier'] || '';
+
+  $('reviewFormAgent').textContent = `${name} · ${agent['Division']||''} · ${tier}`;
+
+  // Metrics block
+  $('reviewMetrics').innerHTML = `
+    <div class="review-metric"><div class="review-metric-val amber">${subs}</div><div class="review-metric-label">Subs</div></div>
+    <div class="review-metric"><div class="review-metric-val">${offers}</div><div class="review-metric-label">Offers</div></div>
+    <div class="review-metric"><div class="review-metric-val green">${units}</div><div class="review-metric-label">Funded</div></div>
+    <div class="review-metric"><div class="review-metric-val green" style="font-size:13px">${fmtK(fund$)}</div><div class="review-metric-label">Funded $</div></div>
+    <div class="review-metric"><div class="review-metric-val">${irpc}</div><div class="review-metric-label">IRPCs</div></div>
+    <div class="review-metric"><div class="review-metric-val">${(subPerIRPC*100).toFixed(0)}%</div><div class="review-metric-label">Sub/IRPC</div></div>
+    <div class="review-metric"><div class="review-metric-val">${(offerPerSub*100).toFixed(0)}%</div><div class="review-metric-label">Offer/Sub</div></div>
+    <div class="review-metric"><div class="review-metric-val ${goalAtt>=100?'green':goalAtt>=50?'amber':'red'}">${Math.round(goalAtt)}%</div><div class="review-metric-label">vs Goal</div></div>
+  `;
+
+  // Auto-fill metrics text
+  const metricsLines = [];
+  metricsLines.push(`> Initial RPCs: ${irpc}`);
+  metricsLines.push(`> Submissions: ${subs} | Sub/IRPC: ${(subPerIRPC*100).toFixed(0)}%`);
+  metricsLines.push(`> Offers: ${offers} | Offer/Sub: ${(offerPerSub*100).toFixed(0)}%`);
+  metricsLines.push(`> Funded Units: ${units} | Funded $: ${fmtK(fund$)}`);
+  if (goal > 0) metricsLines.push(`> Goal Attainment: ${Math.round(goalAtt)}% of ${fmtK(goal)} goal`);
+  if (next && next !== 'STAY') metricsLines.push(`> Trajectory: ${next}`);
+  $('reviewMetricsText').value = metricsLines.join('\n');
+
+  // Set review type based on POA
+  if (poa === 'POA2' || poa === 'POA3') {
+    $('reviewType').value = 'POA';
+    $('reviewPOALevel').value = poa.replace('POA','');
+  } else if (poa === 'POA1') {
+    $('reviewType').value = 'POA';
+    $('reviewPOALevel').value = '1';
+  }
+  updateFollowUp();
+
+  // Set today's date
+  const today = new Date();
+  $('reviewDate').value = today.toISOString().split('T')[0];
+
+  $('reviewMetricsBlock').style.display = 'block';
+}
+
+function updateFollowUp() {
+  const type = $('reviewType').value;
+  const poaField = $('poaLevelField');
+  poaField.style.display = type === 'POA' ? 'block' : 'none';
+
+  // Auto-set follow-up date
+  const today = new Date();
+  let days = 30; // monthly
+  if (type === 'POA' || type === 'Follow-Up' || type === 'New Hire') days = 14;
+  const followUp = new Date(today.getTime() + days * 86400000);
+  $('reviewFollowUp').value = followUp.toISOString().split('T')[0];
+}
+
+function clearReviewForm() {
+  $('reviewAgentSelect').value = '';
+  $('reviewMetricsBlock').style.display = 'none';
+  $('reviewFormAgent').textContent = 'Select an agent to begin';
+}
+
+function exportReviewPDF() {
+  const name    = $('reviewAgentSelect').value;
+  const date    = $('reviewDate').value;
+  const type    = $('reviewType').value;
+  const poaLvl  = $('reviewPOALevel').value;
+  const reviewer = $('reviewReviewer').value || '—';
+  const metrics = $('reviewMetricsText').value;
+  const topics  = $('reviewTopics').value;
+  const feedback = $('reviewFeedback').value;
+  const followUp = $('reviewFollowUp').value;
+
+  if (!name || !date) { alert('Please select an agent and set a review date.'); return; }
+
+  const agent = getAgent(name);
+  const div   = agent['Division'] || '';
+  const tier  = agent['Tier'] || '';
+  const poa   = agent['POA Status'] || agent['POA'] || '';
+
+  const fmtDate = d => d ? new Date(d).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : '—';
+  const followUpDays = followUp ? Math.round((new Date(followUp)-new Date(date))/86400000) : 30;
+
+  // Build printable HTML
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Agent Review — \${name} — \${date}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Outfit', Arial, sans-serif; font-size: 12px; color: #1a2e2c; background: #fff; padding: 40px; max-width: 720px; margin: 0 auto; }
+  .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #00968a; padding-bottom: 16px; margin-bottom: 24px; }
+  .header-brand { display: flex; align-items: center; gap: 10px; }
+  .logo-box { width: 36px; height: 36px; background: #00968a; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 13px; }
+  .brand-text { font-size: 18px; font-weight: 700; color: #00968a; }
+  .brand-sub { font-size: 11px; color: #666; }
+  .doc-type { font-size: 13px; font-weight: 600; color: #1a2e2c; text-align: right; }
+  .confidential { font-size: 10px; color: #999; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; margin-bottom: 20px; padding: 16px; background: #f0faf9; border-radius: 8px; border: 1px solid #c0e8e4; }
+  .info-row { display: flex; gap: 8px; align-items: center; }
+  .info-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #00968a; min-width: 90px; }
+  .info-val { font-size: 12px; font-weight: 500; }
+  .metrics-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 20px; }
+  .metric-box { background: #f0faf9; border: 1px solid #c0e8e4; border-radius: 6px; padding: 10px; text-align: center; }
+  .metric-val { font-size: 20px; font-weight: 700; color: #00968a; }
+  .metric-label { font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 2px; }
+  .section { margin-bottom: 18px; }
+  .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: #00968a; border-bottom: 1px solid #c0e8e4; padding-bottom: 5px; margin-bottom: 8px; }
+  .section-body { font-size: 12px; line-height: 1.6; white-space: pre-wrap; color: #1a2e2c; min-height: 40px; }
+  .sig-section { margin-top: 32px; border-top: 1px solid #ddd; padding-top: 20px; }
+  .sig-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  .sig-line { border-bottom: 1px solid #888; padding-bottom: 4px; min-height: 32px; margin-bottom: 4px; }
+  .sig-label { font-size: 10px; color: #666; }
+  .ack-text { font-size: 10px; color: #666; line-height: 1.5; margin-bottom: 16px; font-style: italic; }
+  .footer { margin-top: 24px; text-align: center; font-size: 10px; color: #999; border-top: 1px solid #eee; padding-top: 10px; }
+  @media print { body { padding: 20px; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-brand">
+    <div class="logo-box">PF</div>
+    <div><div class="brand-text">Platform Funding</div><div class="brand-sub">Agent Review Record</div></div>
+  </div>
+  <div style="text-align:right">
+    <div class="doc-type">${`\${type}\${type==='POA'?' — Level '+poaLvl:''}`} Review</div>
+    <div class="confidential">Confidential — For Internal Use Only</div>
+  </div>
+</div>
+
+<div class="info-grid">
+  <div class="info-row"><span class="info-label">Agent</span><span class="info-val">\${name}</span></div>
+  <div class="info-row"><span class="info-label">Office</span><span class="info-val">\${div}</span></div>
+  <div class="info-row"><span class="info-label">Review Date</span><span class="info-val">\${fmtDate(date)}</span></div>
+  <div class="info-row"><span class="info-label">Reviewer</span><span class="info-val">\${reviewer}</span></div>
+  <div class="info-row"><span class="info-label">Tier</span><span class="info-val">\${tier}</span></div>
+  <div class="info-row"><span class="info-label">POA Status</span><span class="info-val">\${poa || 'None'}</span></div>
+  <div class="info-row"><span class="info-label">Follow-Up Date</span><span class="info-val">\${fmtDate(followUp)}</span></div>
+  <div class="info-row"><span class="info-label">Cadence</span><span class="info-val">Every \${followUpDays} days</span></div>
+</div>
+
+<div class="section">
+  <div class="section-title">Key Metrics / Current Stats</div>
+  <div class="section-body">\${metrics || '—'}</div>
+</div>
+
+<div class="section">
+  <div class="section-title">Topics Covered</div>
+  <div class="section-body">\${topics || '—'}</div>
+</div>
+
+<div class="section">
+  <div class="section-title">Additional Feedback / Corrective Action</div>
+  <div class="section-body">\${feedback || '—'}</div>
+</div>
+
+<div class="sig-section">
+  <div class="ack-text">By signing below, the agent acknowledges they have received, read, and understood the contents of this review. Acknowledgement of this document does not necessarily constitute agreement with its contents.</div>
+  <div class="sig-grid">
+    <div><div class="sig-line"></div><div class="sig-label">Agent Signature &amp; Date</div></div>
+    <div><div class="sig-line"></div><div class="sig-label">Manager Signature &amp; Date</div></div>
+    <div><div class="sig-line"></div><div class="sig-label">QA / Alex Signature &amp; Date</div></div>
+  </div>
+</div>
+
+<div class="footer">Platform Funding — Agent Review Record · Generated \${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})} · Confidential</div>
+</body>
+</html>`;
+
+  // Open in new window and print
+  const win = window.open('', '_blank', 'width=800,height=900');
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 500);
+
+  // Save to session history
+  const record = { name, date, type, reviewer, metrics, topics, feedback, followUp, div, tier, poa };
+  sessionReviews.unshift(record);
+  renderReviewHistory();
+}
+
+function renderReviewHistory() {
+  const el = $('reviewHistory');
+  if (!sessionReviews.length) return;
+  el.innerHTML = sessionReviews.map(r => {
+    const typeCls = r.type==='POA'?'b-poa2':r.type==='New Hire'?'b-new':'b-stay';
+    return `<div class="review-history-row">
+      <div class="rh-date">\${new Date(r.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
+      <div class="rh-type"><span class="badge \${typeCls}" style="font-size:9px">\${r.type}</span></div>
+      <div class="rh-agent">\${r.name}</div>
+      <div class="rh-topics">\${r.topics ? r.topics.split('\n')[0] : '—'}</div>
+    </div>`;
+  }).join('');
+  $('reviewHistoryCount').textContent = `\${sessionReviews.length} this session`;
+}
+
+// ── AUTO CONNECT ON LOAD ──────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  connectSheet();
+});
+</script>
+</body>
+</html>
