@@ -1056,35 +1056,31 @@ function getAgentOpps(name) {
 
 // ── OVERVIEW ─────────────────────────────────────────────────────────────
 function renderOverview() {
-  // Apply date filter
+  // ── ALL COMPUTATIONS FIRST ──────────────────────────────────────────
   const filteredLeads = filterByDate(DB.leads, 'Export Date');
   const filteredOpps  = filterByDate(DB.opps, 'Export Date');
   const ovFilteredLV  = filterByDateByField(DB.livevox, LV_COLS.date);
   const ovFilteredVA  = filterByDateByField(DB.vaspian, VA_COLS.date);
-  const filteredLV    = filterByDateByField(DB.livevox, LV_COLS.date);
-  const filteredVA    = filterByDateByField(DB.vaspian, VA_COLS.date);
+
   updateDateBar();
 
-  // Aggregate from leads
   const irpcTotal = filteredLeads.filter(r => r['Initial Contact']).length;
   const subTotal  = filteredLeads.filter(r => r['Submission Date']).length;
   const ttmTotal  = filteredLeads.filter(r => r['Lead Status'] === 'TT MERCHANT-APP SENT').length;
 
-  // Aggregate from opps
-  const funded = filteredOpps.filter(r => r['Stage'] === 'FUNDED');
+  const funded     = filteredOpps.filter(r => r['Stage'] === 'FUNDED');
   const fundedTotal = funded.reduce((s,r) => s + safe(r['Funded $']), 0);
   const fundedUnits = funded.length;
-  const active  = filteredOpps.filter(r => r['Stage'] !== 'FUNDED' && r['Stage'] !== 'REVISIT');
-  const offersTotal = DB.opps.reduce((s,r) => s + safe(r['# of Offers']), 0);
+  const active     = filteredOpps.filter(r => r['Stage'] !== 'FUNDED' && r['Stage'] !== 'REVISIT');
+  const oppTotal   = filteredOpps.length;
+  const offerCount = filteredOpps.filter(r => ['OFFER','CONTRACT','PRE-FUND','FUNDED'].includes(r['Stage'])).length;
+  const sub2off    = offerCount > 0 && oppTotal > 0 ? offerCount/oppTotal : 0;
+  const off2fund   = fundedUnits > 0 && offerCount > 0 ? fundedUnits/offerCount : 0;
 
-  // Division breakdown
-  const divs = ['BLO','CA','FL'];
-  const divColors = {BLO:'var(--primary)',CA:'#60a5fa',FL:'var(--green)'};
-
-  // Phone totals
   const phoneTotals = getPhoneTotals(ovFilteredLV, ovFilteredVA);
-  const poaCount = DB.roster.filter(r=>(r['POA Status']||r['POA']||'')).length;
+  const poaCount    = DB.roster.filter(r => (r['POA Status'] || r['POA'] || '')).length;
 
+  // ── BUILD UI ──────────────────────────────────────────────────────────
   $('overviewContent').innerHTML = `
     <div class="page-hdr" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
       <div>
@@ -1110,9 +1106,9 @@ function renderOverview() {
       <div class="kpi amber"><div class="kpi-label">Submissions</div><div class="kpi-val amber">${oppTotal.toLocaleString()}</div><div class="kpi-foot">Entered pipeline</div></div>
       <div class="kpi"><div class="kpi-label">Active Deals</div><div class="kpi-val">${active.length}</div><div class="kpi-foot">In pipeline now</div></div>
       <div class="kpi green"><div class="kpi-label">New Units</div><div class="kpi-val green">${fundedUnits}</div><div class="kpi-foot">Funded this period</div></div>
-      <div class="kpi green"><div class="kpi-label">Funded $</div><div class="kpi-val green" style="font-size:${fundedTotal>0?'20':'26'}px">${fundedTotal>0?fmtK(fundedTotal):'See Pipeline'}</div><div class="kpi-foot">${fundedTotal>0?'Total funded':'Track in Pipeline tab'}</div></div>
+      <div class="kpi green"><div class="kpi-label">Funded $</div><div class="kpi-val green" style="font-size:${fundedTotal>0?'20':'22'}px">${fundedTotal>0?fmtK(fundedTotal):'See Pipeline'}</div><div class="kpi-foot">${fundedTotal>0?'Total funded':'Track in Pipeline tab'}</div></div>
       <div class="kpi"><div class="kpi-label">Total Calls</div><div class="kpi-val white">${phoneTotals.totalCalls.toLocaleString()}</div><div class="kpi-foot">LV + Vaspian combined</div></div>
-      <div class="kpi"><div class="kpi-label">Talk Min / Hr</div><div class="kpi-val" style="color:var(--primary)">${phoneTotals.talkMinPerHr.toFixed(2)}</div><div class="kpi-foot">Total talk ÷ 6hrs</div></div>
+      <div class="kpi"><div class="kpi-label">Talk Min / Hr</div><div class="kpi-val" style="color:var(--primary)">${phoneTotals.talkMinPerHr.toFixed(2)}</div><div class="kpi-foot">Total talk ÷ 6 hrs</div></div>
       <div class="kpi"><div class="kpi-label">Avg Handle Time</div><div class="kpi-val" style="color:var(--text2);font-size:20px">${phoneTotals.avgHandle.toFixed(2)}<span style="font-size:12px">min</span></div><div class="kpi-foot">Talk min ÷ calls</div></div>
       <div class="kpi"><div class="kpi-label">Agents Active</div><div class="kpi-val white">${DB.roster.length}</div><div class="kpi-foot">${poaCount} on POA</div></div>
     </div>
@@ -1122,18 +1118,13 @@ function renderOverview() {
     <div class="alert-grid" id="alertBlock"></div>
   `;
 
-  // Funnel
-  const oppTotal = filteredOpps.length;
-  const offerCount = filteredOpps.filter(r => ['OFFER','CONTRACT','PRE-FUND','FUNDED'].includes(r['Stage'])).length;
-  const sub2off = offerCount > 0 && oppTotal > 0 ? offerCount/oppTotal : 0;
-  const off2fund = fundedUnits > 0 && offerCount > 0 ? fundedUnits/offerCount : 0;
-
+  // ── FUNNEL ────────────────────────────────────────────────────────────
   $('funnelBlock').innerHTML = `
     <div class="funnel-step"><div class="funnel-label">Initial RPCs</div><div class="funnel-val">${irpcTotal.toLocaleString()}</div><div class="funnel-rate">Real first contacts</div></div>
     <div class="funnel-step"><div class="funnel-label">TT Merchant</div><div class="funnel-val amber">${ttmTotal.toLocaleString()}</div><div class="funnel-rate">${irpcTotal>0?fmtPct(ttmTotal/irpcTotal):'—'} of IRPCs</div></div>
     <div class="funnel-step"><div class="funnel-label">Submissions</div><div class="funnel-val amber">${oppTotal.toLocaleString()}</div><div class="funnel-rate">Entered pipeline</div></div>
     <div class="funnel-step"><div class="funnel-label">Offers</div><div class="funnel-val">${offerCount.toLocaleString()}</div><div class="funnel-rate"><em>${fmtPct(sub2off)}</em> of subs</div></div>
-    <div class="funnel-step"><div class="funnel-label">Funded</div><div class="funnel-val green">${fundedUnits}</div><div class="funnel-rate"><em>${fmtPct(off2fund)}</em> of offers</div></div>
+    <div class="funnel-step"><div class="funnel-label">New Units</div><div class="funnel-val green">${fundedUnits}</div><div class="funnel-rate"><em>${fmtPct(off2fund)}</em> of offers</div></div>
   `;
 
   // Division cards
