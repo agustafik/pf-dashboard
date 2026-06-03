@@ -205,7 +205,7 @@ td.muted { color: var(--text3); }
 }
 .b-poa1 { background: rgba(251,191,36,0.20); color: #fbbf24; border: 1px solid rgba(251,191,36,0.40); }
 .b-poa2 { background: rgba(220,38,38,0.25); color: #fbbf24; border: 1px solid rgba(220,38,38,0.50); }
-.b-poa3 { background: rgba(185,28,28,0.35); color: #ffffff; border: 1px solid rgba(185,28,28,0.60); font-weight:700; }
+.b-poa3 { background: rgba(185,28,28,0.35); color: #fca5a5; border: 1px solid rgba(185,28,28,0.60); font-weight:700; }
 .b-up   { background: rgba(52,211,153,0.10); color: var(--green); border: 1px solid rgba(52,211,153,0.2); }
 .b-down { background: rgba(248,113,113,0.10); color: var(--red); border: 1px solid rgba(248,113,113,0.2); }
 .b-stay { background: rgba(255,255,255,0.04); color: var(--text3); border: 1px solid var(--rim); }
@@ -865,47 +865,66 @@ function getAvailableDates() {
 }
 
 // ── PHONE SYSTEM HELPERS ─────────────────────────────────────────────────
+function getDailyTalkMap(lvRows, vaRows) {
+  // Build a map of date -> {talkMin, calls} combining LV and Vaspian
+  const dayMap = {};
+  lvRows.forEach(r => {
+    const d = r[LV_COLS.date] || 'unknown';
+    if (!dayMap[d]) dayMap[d] = {talkMin:0, calls:0};
+    dayMap[d].talkMin += safe(parseFloat(r[LV_COLS.inCallMin]||0));
+    dayMap[d].calls   += safe(parseFloat(r[LV_COLS.totalRPCs]||0));
+  });
+  vaRows.forEach(r => {
+    const d = r[VA_COLS.date] || 'unknown';
+    if (!dayMap[d]) dayMap[d] = {talkMin:0, calls:0};
+    dayMap[d].talkMin += safe(parseFloat(r[VA_COLS.talkMin]||0));
+    dayMap[d].calls   += safe(parseFloat(r[VA_COLS.totalCalls]||0));
+  });
+  return dayMap;
+}
+
 function getAgentPhone(agentName, filteredLV, filteredVA) {
   const lvRows = (filteredLV || DB.livevox).filter(r => r[LV_COLS.agent] === agentName);
   const vaRows = (filteredVA || DB.vaspian).filter(r => r[VA_COLS.agent] === agentName);
 
-  const lvTalkMin   = lvRows.reduce((s,r) => s + safe(parseFloat(r[LV_COLS.inCallMin]||0)), 0);
-  const lvCalls     = lvRows.reduce((s,r) => s + safe(parseFloat(r[LV_COLS.totalRPCs]||0)), 0);
-  const lvWrapMin   = lvRows.reduce((s,r) => s + safe(parseFloat(r[LV_COLS.wrapupMin]||0)), 0);
-  const lvNotReady  = lvRows.reduce((s,r) => s + safe(parseFloat(r[LV_COLS.notReadyMin]||0)), 0);
+  const dayMap     = getDailyTalkMap(lvRows, vaRows);
+  const days       = Object.values(dayMap);
+  const numDays    = days.length || 1;
+  const totalCalls = days.reduce((s,d) => s + d.calls, 0);
+  const totalTalk  = days.reduce((s,d) => s + d.talkMin, 0);
 
-  const vaTalkMin   = vaRows.reduce((s,r) => s + safe(parseFloat(r[VA_COLS.talkMin]||0)), 0);
-  const vaCalls     = vaRows.reduce((s,r) => s + safe(parseFloat(r[VA_COLS.totalCalls]||0)), 0);
+  // Talk Min/Hr = AVERAGE of daily (talkMin / 6) values
+  const dailyRates      = days.map(d => d.talkMin / 6);
+  const talkMinPerHr    = dailyRates.length > 0
+    ? dailyRates.reduce((s,v) => s+v, 0) / dailyRates.length
+    : 0;
+  const avgHandle       = totalCalls > 0 ? totalTalk / totalCalls : 0;
 
-  const totalTalkMin  = lvTalkMin + vaTalkMin;
-  const totalCalls    = lvCalls + vaCalls;
-  const talkMinPerHr  = totalTalkMin > 0 ? totalTalkMin / 6 : 0;
-  const avgHandle     = totalCalls > 0 ? totalTalkMin / totalCalls : 0;
+  const lvWrapMin  = lvRows.reduce((s,r) => s + safe(parseFloat(r[LV_COLS.wrapupMin]||0)), 0);
+  const lvNotReady = lvRows.reduce((s,r) => s + safe(parseFloat(r[LV_COLS.notReadyMin]||0)), 0);
 
-  // Days with data (for proper per-day average)
-  const lvDays = new Set(lvRows.map(r => r[LV_COLS.date])).size || 1;
-  const vaDays = new Set(vaRows.map(r => r[VA_COLS.date])).size || 1;
-  const days   = Math.max(lvDays, vaDays, 1);
-
-  return { lvTalkMin, vaTalkMin, totalTalkMin, totalCalls, lvCalls, vaCalls,
-           talkMinPerHr, avgHandle, lvWrapMin, lvNotReady, days,
-           talkMinPerHrPerDay: totalTalkMin / days / 6 };
+  return { totalTalkMin:totalTalk, totalCalls, talkMinPerHr, avgHandle,
+           lvWrapMin, lvNotReady, numDays };
 }
 
 function getPhoneTotals(filteredLV, filteredVA) {
   const lv = filteredLV || DB.livevox;
   const va = filteredVA || DB.vaspian;
-  const totalLVTalk  = lv.reduce((s,r) => s + safe(parseFloat(r[LV_COLS.inCallMin]||0)), 0);
-  const totalVATalk  = va.reduce((s,r) => s + safe(parseFloat(r[VA_COLS.talkMin]||0)), 0);
-  const totalLVCalls = lv.reduce((s,r) => s + safe(parseFloat(r[LV_COLS.totalRPCs]||0)), 0);
-  const totalVACalls = va.reduce((s,r) => s + safe(parseFloat(r[VA_COLS.totalCalls]||0)), 0);
-  const totalTalk    = totalLVTalk + totalVATalk;
-  const totalCalls   = totalLVCalls + totalVACalls;
-  return {
-    totalTalk, totalCalls,
-    talkMinPerHr: totalTalk / 6,
-    avgHandle: totalCalls > 0 ? totalTalk / totalCalls : 0
-  };
+
+  const dayMap     = getDailyTalkMap(lv, va);
+  const days       = Object.values(dayMap);
+  const numDays    = days.length || 1;
+  const totalCalls = days.reduce((s,d) => s + d.calls, 0);
+  const totalTalk  = days.reduce((s,d) => s + d.talkMin, 0);
+
+  // Talk Min/Hr = AVERAGE of daily rates (not cumulative sum / 6)
+  const dailyRates   = days.map(d => d.talkMin / 6);
+  const talkMinPerHr = dailyRates.length > 0
+    ? dailyRates.reduce((s,v) => s+v, 0) / dailyRates.length
+    : 0;
+  const avgHandle    = totalCalls > 0 ? totalTalk / totalCalls : 0;
+
+  return { totalTalk, totalCalls, talkMinPerHr, avgHandle, numDays };
 }
 
 function divBadge(d) {
