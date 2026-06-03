@@ -1059,6 +1059,8 @@ function renderOverview() {
   // Apply date filter
   const filteredLeads = filterByDate(DB.leads, 'Export Date');
   const filteredOpps  = filterByDate(DB.opps, 'Export Date');
+  const ovFilteredLV  = filterByDateByField(DB.livevox, LV_COLS.date);
+  const ovFilteredVA  = filterByDateByField(DB.vaspian, VA_COLS.date);
   const filteredLV    = filterByDateByField(DB.livevox, LV_COLS.date);
   const filteredVA    = filterByDateByField(DB.vaspian, VA_COLS.date);
   updateDateBar();
@@ -1119,10 +1121,6 @@ function renderOverview() {
     <div class="div-grid" id="divBlock"></div>
     <div class="alert-grid" id="alertBlock"></div>
   `;
-
-  // Phone totals for this filter context
-  const ovFilteredLV = filterByDateByField(DB.livevox, LV_COLS.date);
-  const ovFilteredVA = filterByDateByField(DB.vaspian, VA_COLS.date);
 
   // Funnel
   const oppTotal = filteredOpps.length;
