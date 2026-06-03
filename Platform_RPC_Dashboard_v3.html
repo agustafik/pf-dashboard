@@ -1128,6 +1128,8 @@ function renderOverview() {
   `;
 
   // Division cards
+  const divs = ['BLO','CA','FL'];
+  const divColors = {BLO:'var(--primary)',CA:'#60a5fa',FL:'var(--green)'};
   $('divBlock').innerHTML = divs.map(div => {
     const dLeads = filteredLeads.filter(r => r['Division'] === div);
     const dOpps  = filteredOpps.filter(r => {
