@@ -422,6 +422,66 @@ td.muted { color: var(--text3); }
 .hero-n.amber { color: var(--amber); }
 .hero-l { font-size: 9px; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.4px; }
 
+/* ── DATE BAR ── */
+.date-mode-btn {
+  background: none; border: 1px solid var(--rim2); border-radius: 20px;
+  padding: 3px 12px; font-family: var(--sans); font-size: 11px; font-weight: 500;
+  color: var(--text2); cursor: pointer; transition: all 0.15s;
+}
+.date-mode-btn:hover { color: var(--text); }
+.date-mode-btn.active { background: var(--surface3); color: var(--primary); border-color: var(--primary); }
+
+/* ── REVIEW FORM ── */
+.review-form { padding: 20px; }
+.review-field { margin-bottom: 14px; }
+.review-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text2); margin-bottom: 5px; }
+.review-input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--rim2);
+  border-radius: var(--r-sm); padding: 8px 12px; font-family: var(--sans);
+  font-size: 12px; color: var(--text); outline: none; resize: vertical;
+}
+.review-input:focus { border-color: var(--primary); }
+.review-metrics-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 14px; }
+.review-metric {
+  background: var(--surface2); border: 1px solid var(--rim);
+  border-radius: var(--r-sm); padding: 8px 10px; text-align: center;
+}
+.review-metric-val { font-family: var(--mono); font-size: 16px; color: var(--primary); font-weight: 500; }
+.review-metric-val.green { color: var(--green); }
+.review-metric-val.amber { color: var(--amber); }
+.review-metric-label { font-size: 9px; color: var(--text3); margin-top: 2px; text-transform: uppercase; }
+.review-actions { display: flex; gap: 8px; margin-top: 16px; }
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary2), var(--primary));
+  border: none; border-radius: var(--r-sm); padding: 8px 18px;
+  font-family: var(--sans); font-size: 12px; font-weight: 600;
+  color: #fff; cursor: pointer; transition: opacity 0.2s;
+}
+.btn-primary:hover { opacity: 0.85; }
+.btn-secondary {
+  background: var(--surface2); border: 1px solid var(--rim2);
+  border-radius: var(--r-sm); padding: 8px 18px;
+  font-family: var(--sans); font-size: 12px; font-weight: 500;
+  color: var(--text2); cursor: pointer; transition: all 0.15s;
+}
+.btn-secondary:hover { color: var(--text); border-color: var(--rim2); }
+.agent-selector {
+  width: 100%; background: var(--surface2); border: 1px solid var(--rim2);
+  color: var(--text); font-family: var(--sans); font-size: 12px;
+  padding: 8px 12px; border-radius: var(--r-sm); outline: none; cursor: pointer;
+  margin-bottom: 14px;
+}
+.agent-selector:focus { border-color: var(--primary); }
+.review-history-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 10px 14px; border-bottom: 1px solid var(--rim);
+}
+.review-history-row:hover { background: rgba(0,196,180,0.02); }
+.rh-date { font-family: var(--mono); font-size: 11px; color: var(--text3); min-width: 80px; }
+.rh-type { min-width: 70px; }
+.rh-agent { font-weight: 600; font-size: 12px; min-width: 140px; }
+.rh-topics { font-size: 11px; color: var(--text2); flex: 1; }
+
 /* ── RESPONSIVE ── */
 @media (max-width: 900px) {
   .funnel { grid-template-columns: repeat(3,1fr); }
@@ -471,6 +531,16 @@ td.muted { color: var(--text3); }
   <button class="tab" onclick="showTab('scoreboard')" id="t-scoreboard"><span class="tab-icon">◉</span> Agent Scoreboard</button>
   <button class="tab" onclick="showTab('pipeline')" id="t-pipeline"><span class="tab-icon">◎</span> Pipeline</button>
   <button class="tab" onclick="showTab('schedule')" id="t-schedule"><span class="tab-icon">◷</span> Review Schedule</button>
+  <button class="tab" onclick="showTab('reviews')" id="t-reviews"><span class="tab-icon">✎</span> Reviews</button>
+</div>
+
+<div class="date-bar" id="dateBar" style="display:none;background:var(--bg2);border-bottom:1px solid var(--rim);padding:6px 28px;display:flex;align-items:center;gap:10px;">
+  <span style="font-size:11px;color:var(--text3)">Viewing:</span>
+  <button class="date-mode-btn active" onclick="setDateMode('month',this)">Month</button>
+  <button class="date-mode-btn" onclick="setDateMode('week',this)">Week</button>
+  <button class="date-mode-btn" onclick="setDateMode('day',this)">Day</button>
+  <span style="font-size:11px;color:var(--text2);margin-left:8px" id="dateLabel"></span>
+  <select id="dateSelector" style="display:none;background:var(--surface2);border:1px solid var(--rim2);color:var(--text);font-size:11px;padding:3px 8px;border-radius:4px;margin-left:8px" onchange="selectSpecificDate(this.value)"></select>
 </div>
 
 <div class="main" id="mainContent">
@@ -578,6 +648,97 @@ td.muted { color: var(--text3); }
   </div>
 </div>
 
+<!-- ── REVIEW TAB ── -->
+<div class="panel" id="panel-reviews">
+  <div class="page-hdr">
+    <div class="page-title">Agent Reviews</div>
+    <div class="page-sub">Create reviews · Export to PDF · Track history</div>
+  </div>
+  <div class="two-col" style="align-items:start">
+
+    <!-- LEFT: New Review Form -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="card-title">New Review</span>
+        <span class="card-sub" id="reviewFormAgent">Select an agent to begin</span>
+      </div>
+      <div class="review-form">
+        <div class="review-field">
+          <div class="review-label">Agent</div>
+          <select class="agent-selector" id="reviewAgentSelect" onchange="loadAgentReview()">
+            <option value="">— Select Agent —</option>
+          </select>
+        </div>
+        <div id="reviewMetricsBlock" style="display:none">
+          <div class="review-label" style="margin-bottom:8px">Current Performance</div>
+          <div class="review-metrics-grid" id="reviewMetrics"></div>
+          <div class="review-field">
+            <div class="review-label">Review Date</div>
+            <input type="date" class="review-input" id="reviewDate" style="resize:none">
+          </div>
+          <div class="review-field">
+            <div class="review-label">Review Type</div>
+            <select class="review-input" id="reviewType" onchange="updateFollowUp()" style="resize:none">
+              <option value="Standard">Standard</option>
+              <option value="POA">POA</option>
+              <option value="Follow-Up">Follow-Up</option>
+              <option value="New Hire">New Hire</option>
+              <option value="Accelerate">Accelerate</option>
+            </select>
+          </div>
+          <div class="review-field" id="poaLevelField" style="display:none">
+            <div class="review-label">POA Level</div>
+            <select class="review-input" id="reviewPOALevel" style="resize:none">
+              <option value="1">POA1</option>
+              <option value="2">POA2</option>
+              <option value="3">POA3</option>
+            </select>
+          </div>
+          <div class="review-field">
+            <div class="review-label">Reviewer</div>
+            <input type="text" class="review-input" id="reviewReviewer" placeholder="e.g. Alex/Jon" style="resize:none">
+          </div>
+          <div class="review-field">
+            <div class="review-label">Key Metrics / Stats <span style="color:var(--text3);font-weight:400;font-size:10px">(auto-filled · editable)</span></div>
+            <textarea class="review-input" id="reviewMetricsText" rows="4" placeholder="Key performance observations..."></textarea>
+          </div>
+          <div class="review-field">
+            <div class="review-label">Topics Covered</div>
+            <textarea class="review-input" id="reviewTopics" rows="3" placeholder="e.g. *Increase contact rate&#10;*Improve qualification to increase Offers"></textarea>
+          </div>
+          <div class="review-field">
+            <div class="review-label">Additional Feedback / Corrective Action</div>
+            <textarea class="review-input" id="reviewFeedback" rows="3" placeholder="Additional notes, action items..."></textarea>
+          </div>
+          <div class="review-field">
+            <div class="review-label">Follow-Up Date</div>
+            <input type="date" class="review-input" id="reviewFollowUp" style="resize:none">
+          </div>
+          <div class="review-actions">
+            <button class="btn-primary" onclick="exportReviewPDF()">⬇ Export Review PDF</button>
+            <button class="btn-secondary" onclick="clearReviewForm()">Clear</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Review History -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="card-title">Recent Reviews</span>
+        <span class="card-sub" id="reviewHistoryCount"></span>
+      </div>
+      <div id="reviewHistory" style="max-height:600px;overflow-y:auto">
+        <div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">
+          Reviews you export will appear here during this session.<br>
+          For permanent records, paste into your Excel tracker.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 </div><!-- /main -->
 
 <script>
@@ -595,6 +756,8 @@ let DB = { leads:[], opps:[], eom:[], roster:[] };
 let newHires = new Set();
 let sbSort = { key:'subs', dir:-1 };
 let connected = false;
+let dateMode = 'month'; // 'day' | 'week' | 'month'
+let selectedDate = null; // used for day/week mode
 
 // ── UTILS ────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -603,6 +766,65 @@ const fmtK = v => v >= 1000000 ? '$'+(v/1000000).toFixed(1)+'M' : v >= 1000 ? '$
 const fmtPct = v => ((v||0)*100).toFixed(0)+'%';
 const fmtP1 = v => ((v||0)*100).toFixed(1)+'%';
 const safe = v => (typeof v === 'number' && isFinite(v)) ? v : 0;
+
+// ── DATE FILTERING ──────────────────────────────────────────────────────
+function parseDate(val) {
+  if (!val) return null;
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function getExportDate(row) {
+  return parseDate(row['Export Date']);
+}
+
+function filterByDate(rows, dateField) {
+  if (!rows || !rows.length) return rows;
+  const now = selectedDate || new Date();
+  return rows.filter(r => {
+    const d = getExportDate(r) || parseDate(r[dateField]);
+    if (!d) return true; // no date = include
+    if (dateMode === 'day') {
+      return d.toDateString() === now.toDateString();
+    } else if (dateMode === 'week') {
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay() + 1); // Monday
+      weekStart.setHours(0,0,0,0);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23,59,59,999);
+      return d >= weekStart && d <= weekEnd;
+    } else {
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }
+  });
+}
+
+function getDateLabel() {
+  const now = selectedDate || new Date();
+  if (dateMode === 'day') return now.toLocaleDateString('en-US', {weekday:'long', month:'short', day:'numeric'});
+  if (dateMode === 'week') {
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay() + 1);
+    const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6);
+    return `Week of ${weekStart.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${weekEnd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`;
+  }
+  return now.toLocaleDateString('en-US', {month:'long', year:'numeric'});
+}
+
+function setDateMode(mode, btn) {
+  dateMode = mode;
+  document.querySelectorAll('.date-mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (connected) { renderOverview(); renderScoreboard(); }
+}
+
+function getAvailableDates() {
+  const dates = new Set();
+  DB.leads.forEach(r => { const d = getExportDate(r); if (d) dates.add(d.toDateString()); });
+  DB.opps.forEach(r => { const d = getExportDate(r); if (d) dates.add(d.toDateString()); });
+  return [...dates].sort().reverse();
+}
 
 function divBadge(d) {
   const c = d==='BLO'?'b-blo':d==='CA'?'b-ca':'b-fl';
@@ -707,10 +929,15 @@ async function connectSheet() {
     connected = true;
     $('statusPill').innerHTML = `<div class="status-dot"></div><span id="statusText">${DB.roster.length} agents · Live</span>`;
 
+    // Show date bar and populate controls
+    $('dateBar').style.display = 'flex';
+    updateDateBar();
+
     renderOverview();
     renderScoreboard();
     renderPipeline();
     buildSchedule();
+    populateAgentSelector();
 
   } catch(e) {
     console.error(e);
@@ -749,16 +976,21 @@ function getAgentOpps(name) {
 
 // ── OVERVIEW ─────────────────────────────────────────────────────────────
 function renderOverview() {
+  // Apply date filter
+  const filteredLeads = filterByDate(DB.leads, 'Export Date');
+  const filteredOpps  = filterByDate(DB.opps, 'Export Date');
+  updateDateBar();
+
   // Aggregate from leads
-  const irpcTotal = DB.leads.filter(r => r['Initial Contact']).length;
-  const subTotal  = DB.leads.filter(r => r['Submission Date']).length;
-  const ttmTotal  = DB.leads.filter(r => r['Lead Status'] === 'TT MERCHANT-APP SENT').length;
+  const irpcTotal = filteredLeads.filter(r => r['Initial Contact']).length;
+  const subTotal  = filteredLeads.filter(r => r['Submission Date']).length;
+  const ttmTotal  = filteredLeads.filter(r => r['Lead Status'] === 'TT MERCHANT-APP SENT').length;
 
   // Aggregate from opps
-  const funded = DB.opps.filter(r => r['Stage'] === 'FUNDED');
+  const funded = filteredOpps.filter(r => r['Stage'] === 'FUNDED');
   const fundedTotal = funded.reduce((s,r) => s + safe(r['Funded $']), 0);
   const fundedUnits = funded.length;
-  const active  = DB.opps.filter(r => r['Stage'] !== 'FUNDED' && r['Stage'] !== 'REVISIT');
+  const active  = filteredOpps.filter(r => r['Stage'] !== 'FUNDED' && r['Stage'] !== 'REVISIT');
   const offersTotal = DB.opps.reduce((s,r) => s + safe(r['# of Offers']), 0);
 
   // Division breakdown
@@ -768,7 +1000,7 @@ function renderOverview() {
   $('overviewContent').innerHTML = `
     <div class="page-hdr">
       <div class="page-title">Overview</div>
-      <div class="page-sub">Month-to-date · All Divisions · ${DB.leads.length.toLocaleString()} lead touches · ${DB.opps.length} opportunities</div>
+      <div class="page-sub">${getDateLabel()} · All Divisions · ${filteredLeads.length.toLocaleString()} lead touches · ${filteredOpps.length} opportunities</div>
     </div>
 
     <div class="kpi-grid">
@@ -788,8 +1020,8 @@ function renderOverview() {
   `;
 
   // Funnel
-  const oppTotal = DB.opps.length;
-  const offerCount = DB.opps.filter(r => ['OFFER','CONTRACT','PRE-FUND','FUNDED'].includes(r['Stage'])).length;
+  const oppTotal = filteredOpps.length;
+  const offerCount = filteredOpps.filter(r => ['OFFER','CONTRACT','PRE-FUND','FUNDED'].includes(r['Stage'])).length;
   const sub2off = offerCount > 0 && oppTotal > 0 ? offerCount/oppTotal : 0;
   const off2fund = fundedUnits > 0 && offerCount > 0 ? fundedUnits/offerCount : 0;
 
@@ -803,8 +1035,8 @@ function renderOverview() {
 
   // Division cards
   $('divBlock').innerHTML = divs.map(div => {
-    const dLeads = DB.leads.filter(r => r['Division'] === div);
-    const dOpps  = DB.opps.filter(r => {
+    const dLeads = filteredLeads.filter(r => r['Division'] === div);
+    const dOpps  = filteredOpps.filter(r => {
       const ag = getAgent(r['Opportunity Owner']);
       return ag['Division'] === div;
     });
@@ -861,8 +1093,8 @@ function renderScoreboard() {
   // Build metrics per agent
   const rows = agents.map(a => {
     const name  = a['Agent Name'];
-    const leads = getAgentLeads(name);
-    const opps  = getAgentOpps(name);
+    const leads = filterByDate(getAgentLeads(name), 'Export Date');
+    const opps  = filterByDate(getAgentOpps(name), 'Export Date');
 
     const irpc   = leads.filter(r => r['Initial Contact']).length;
     const ttm    = leads.filter(r => r['Lead Status'] === 'TT MERCHANT-APP SENT').length;
@@ -1205,6 +1437,263 @@ function renderCalendar(agents) {
     </div>`);
   }
   $('calDays').innerHTML = cells.join('');
+}
+
+// ── DATE BAR HELPERS ─────────────────────────────────────────────────────
+function selectSpecificDate(val) {
+  selectedDate = val ? new Date(val) : null;
+  if (connected) { renderOverview(); renderScoreboard(); }
+}
+
+function updateDateBar() {
+  $('dateLabel').textContent = getDateLabel();
+  // Populate date selector for day mode
+  const sel = $('dateSelector');
+  sel.innerHTML = '<option value="">Latest</option>';
+  getAvailableDates().forEach(ds => {
+    const opt = document.createElement('option');
+    opt.value = ds; opt.textContent = new Date(ds).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    sel.appendChild(opt);
+  });
+  sel.style.display = dateMode === 'day' ? 'block' : 'none';
+}
+
+// Override setDateMode to also update bar
+const _setDateMode = setDateMode;
+
+// ── REVIEW FORM ───────────────────────────────────────────────────────────
+let sessionReviews = [];
+
+function populateAgentSelector() {
+  const sel = $('reviewAgentSelect');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Select Agent —</option>';
+  const sorted = [...DB.roster].sort((a,b) => (a['Agent Name']||'').localeCompare(b['Agent Name']||''));
+  sorted.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a['Agent Name'];
+    opt.textContent = `${a['Agent Name']} (${a['Division']||''})`;
+    sel.appendChild(opt);
+  });
+}
+
+function loadAgentReview() {
+  const name = $('reviewAgentSelect').value;
+  if (!name) { $('reviewMetricsBlock').style.display = 'none'; return; }
+
+  const agent = getAgent(name);
+  const leads = getAgentLeads(name);
+  const opps  = getAgentOpps(name);
+
+  const irpc  = leads.filter(r => r['Initial Contact']).length;
+  const subs  = opps.length;
+  const offers = opps.filter(r => ['OFFER','CONTRACT','PRE-FUND','FUNDED'].includes(r['Stage'])).length;
+  const funded = opps.filter(r => r['Stage']==='FUNDED');
+  const fund$ = funded.reduce((s,r) => s+safe(r['Funded $']),0);
+  const units = funded.length;
+  const subPerIRPC  = irpc > 0 ? (subs/irpc) : 0;
+  const offerPerSub = subs > 0 ? (offers/subs) : 0;
+  const goal  = safe(agent['Monthly Goal $'] || agent['Goals'] || 0);
+  const goalAtt = goal > 0 ? (fund$/goal)*100 : 0;
+  const poa   = agent['POA Status'] || agent['POA'] || '';
+  const next  = agent['Next Month Suggestions'] || 'STAY';
+  const tier  = agent['Tier'] || '';
+
+  $('reviewFormAgent').textContent = `${name} · ${agent['Division']||''} · ${tier}`;
+
+  // Metrics block
+  $('reviewMetrics').innerHTML = `
+    <div class="review-metric"><div class="review-metric-val amber">${subs}</div><div class="review-metric-label">Subs</div></div>
+    <div class="review-metric"><div class="review-metric-val">${offers}</div><div class="review-metric-label">Offers</div></div>
+    <div class="review-metric"><div class="review-metric-val green">${units}</div><div class="review-metric-label">Funded</div></div>
+    <div class="review-metric"><div class="review-metric-val green" style="font-size:13px">${fmtK(fund$)}</div><div class="review-metric-label">Funded $</div></div>
+    <div class="review-metric"><div class="review-metric-val">${irpc}</div><div class="review-metric-label">IRPCs</div></div>
+    <div class="review-metric"><div class="review-metric-val">${(subPerIRPC*100).toFixed(0)}%</div><div class="review-metric-label">Sub/IRPC</div></div>
+    <div class="review-metric"><div class="review-metric-val">${(offerPerSub*100).toFixed(0)}%</div><div class="review-metric-label">Offer/Sub</div></div>
+    <div class="review-metric"><div class="review-metric-val ${goalAtt>=100?'green':goalAtt>=50?'amber':'red'}">${Math.round(goalAtt)}%</div><div class="review-metric-label">vs Goal</div></div>
+  `;
+
+  // Auto-fill metrics text
+  const metricsLines = [];
+  metricsLines.push(`> Initial RPCs: ${irpc}`);
+  metricsLines.push(`> Submissions: ${subs} | Sub/IRPC: ${(subPerIRPC*100).toFixed(0)}%`);
+  metricsLines.push(`> Offers: ${offers} | Offer/Sub: ${(offerPerSub*100).toFixed(0)}%`);
+  metricsLines.push(`> Funded Units: ${units} | Funded $: ${fmtK(fund$)}`);
+  if (goal > 0) metricsLines.push(`> Goal Attainment: ${Math.round(goalAtt)}% of ${fmtK(goal)} goal`);
+  if (next && next !== 'STAY') metricsLines.push(`> Trajectory: ${next}`);
+  $('reviewMetricsText').value = metricsLines.join('\n');
+
+  // Set review type based on POA
+  if (poa === 'POA2' || poa === 'POA3') {
+    $('reviewType').value = 'POA';
+    $('reviewPOALevel').value = poa.replace('POA','');
+  } else if (poa === 'POA1') {
+    $('reviewType').value = 'POA';
+    $('reviewPOALevel').value = '1';
+  }
+  updateFollowUp();
+
+  // Set today's date
+  const today = new Date();
+  $('reviewDate').value = today.toISOString().split('T')[0];
+
+  $('reviewMetricsBlock').style.display = 'block';
+}
+
+function updateFollowUp() {
+  const type = $('reviewType').value;
+  const poaField = $('poaLevelField');
+  poaField.style.display = type === 'POA' ? 'block' : 'none';
+
+  // Auto-set follow-up date
+  const today = new Date();
+  let days = 30; // monthly
+  if (type === 'POA' || type === 'Follow-Up' || type === 'New Hire') days = 14;
+  const followUp = new Date(today.getTime() + days * 86400000);
+  $('reviewFollowUp').value = followUp.toISOString().split('T')[0];
+}
+
+function clearReviewForm() {
+  $('reviewAgentSelect').value = '';
+  $('reviewMetricsBlock').style.display = 'none';
+  $('reviewFormAgent').textContent = 'Select an agent to begin';
+}
+
+function exportReviewPDF() {
+  const name    = $('reviewAgentSelect').value;
+  const date    = $('reviewDate').value;
+  const type    = $('reviewType').value;
+  const poaLvl  = $('reviewPOALevel').value;
+  const reviewer = $('reviewReviewer').value || '—';
+  const metrics = $('reviewMetricsText').value;
+  const topics  = $('reviewTopics').value;
+  const feedback = $('reviewFeedback').value;
+  const followUp = $('reviewFollowUp').value;
+
+  if (!name || !date) { alert('Please select an agent and set a review date.'); return; }
+
+  const agent = getAgent(name);
+  const div   = agent['Division'] || '';
+  const tier  = agent['Tier'] || '';
+  const poa   = agent['POA Status'] || agent['POA'] || '';
+
+  const fmtDate = d => d ? new Date(d).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : '—';
+  const followUpDays = followUp ? Math.round((new Date(followUp)-new Date(date))/86400000) : 30;
+
+  // Build printable HTML
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Agent Review — \${name} — \${date}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Outfit', Arial, sans-serif; font-size: 12px; color: #1a2e2c; background: #fff; padding: 40px; max-width: 720px; margin: 0 auto; }
+  .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #00968a; padding-bottom: 16px; margin-bottom: 24px; }
+  .header-brand { display: flex; align-items: center; gap: 10px; }
+  .logo-box { width: 36px; height: 36px; background: #00968a; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 13px; }
+  .brand-text { font-size: 18px; font-weight: 700; color: #00968a; }
+  .brand-sub { font-size: 11px; color: #666; }
+  .doc-type { font-size: 13px; font-weight: 600; color: #1a2e2c; text-align: right; }
+  .confidential { font-size: 10px; color: #999; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; margin-bottom: 20px; padding: 16px; background: #f0faf9; border-radius: 8px; border: 1px solid #c0e8e4; }
+  .info-row { display: flex; gap: 8px; align-items: center; }
+  .info-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #00968a; min-width: 90px; }
+  .info-val { font-size: 12px; font-weight: 500; }
+  .metrics-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 20px; }
+  .metric-box { background: #f0faf9; border: 1px solid #c0e8e4; border-radius: 6px; padding: 10px; text-align: center; }
+  .metric-val { font-size: 20px; font-weight: 700; color: #00968a; }
+  .metric-label { font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 2px; }
+  .section { margin-bottom: 18px; }
+  .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: #00968a; border-bottom: 1px solid #c0e8e4; padding-bottom: 5px; margin-bottom: 8px; }
+  .section-body { font-size: 12px; line-height: 1.6; white-space: pre-wrap; color: #1a2e2c; min-height: 40px; }
+  .sig-section { margin-top: 32px; border-top: 1px solid #ddd; padding-top: 20px; }
+  .sig-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  .sig-line { border-bottom: 1px solid #888; padding-bottom: 4px; min-height: 32px; margin-bottom: 4px; }
+  .sig-label { font-size: 10px; color: #666; }
+  .ack-text { font-size: 10px; color: #666; line-height: 1.5; margin-bottom: 16px; font-style: italic; }
+  .footer { margin-top: 24px; text-align: center; font-size: 10px; color: #999; border-top: 1px solid #eee; padding-top: 10px; }
+  @media print { body { padding: 20px; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-brand">
+    <div class="logo-box">PF</div>
+    <div><div class="brand-text">Platform Funding</div><div class="brand-sub">Agent Review Record</div></div>
+  </div>
+  <div style="text-align:right">
+    <div class="doc-type">${`\${type}\${type==='POA'?' — Level '+poaLvl:''}`} Review</div>
+    <div class="confidential">Confidential — For Internal Use Only</div>
+  </div>
+</div>
+
+<div class="info-grid">
+  <div class="info-row"><span class="info-label">Agent</span><span class="info-val">\${name}</span></div>
+  <div class="info-row"><span class="info-label">Office</span><span class="info-val">\${div}</span></div>
+  <div class="info-row"><span class="info-label">Review Date</span><span class="info-val">\${fmtDate(date)}</span></div>
+  <div class="info-row"><span class="info-label">Reviewer</span><span class="info-val">\${reviewer}</span></div>
+  <div class="info-row"><span class="info-label">Tier</span><span class="info-val">\${tier}</span></div>
+  <div class="info-row"><span class="info-label">POA Status</span><span class="info-val">\${poa || 'None'}</span></div>
+  <div class="info-row"><span class="info-label">Follow-Up Date</span><span class="info-val">\${fmtDate(followUp)}</span></div>
+  <div class="info-row"><span class="info-label">Cadence</span><span class="info-val">Every \${followUpDays} days</span></div>
+</div>
+
+<div class="section">
+  <div class="section-title">Key Metrics / Current Stats</div>
+  <div class="section-body">\${metrics || '—'}</div>
+</div>
+
+<div class="section">
+  <div class="section-title">Topics Covered</div>
+  <div class="section-body">\${topics || '—'}</div>
+</div>
+
+<div class="section">
+  <div class="section-title">Additional Feedback / Corrective Action</div>
+  <div class="section-body">\${feedback || '—'}</div>
+</div>
+
+<div class="sig-section">
+  <div class="ack-text">By signing below, the agent acknowledges they have received, read, and understood the contents of this review. Acknowledgement of this document does not necessarily constitute agreement with its contents.</div>
+  <div class="sig-grid">
+    <div><div class="sig-line"></div><div class="sig-label">Agent Signature &amp; Date</div></div>
+    <div><div class="sig-line"></div><div class="sig-label">Manager Signature &amp; Date</div></div>
+    <div><div class="sig-line"></div><div class="sig-label">QA / Alex Signature &amp; Date</div></div>
+  </div>
+</div>
+
+<div class="footer">Platform Funding — Agent Review Record · Generated \${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})} · Confidential</div>
+</body>
+</html>`;
+
+  // Open in new window and print
+  const win = window.open('', '_blank', 'width=800,height=900');
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 500);
+
+  // Save to session history
+  const record = { name, date, type, reviewer, metrics, topics, feedback, followUp, div, tier, poa };
+  sessionReviews.unshift(record);
+  renderReviewHistory();
+}
+
+function renderReviewHistory() {
+  const el = $('reviewHistory');
+  if (!sessionReviews.length) return;
+  el.innerHTML = sessionReviews.map(r => {
+    const typeCls = r.type==='POA'?'b-poa2':r.type==='New Hire'?'b-new':'b-stay';
+    return `<div class="review-history-row">
+      <div class="rh-date">\${new Date(r.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
+      <div class="rh-type"><span class="badge \${typeCls}" style="font-size:9px">\${r.type}</span></div>
+      <div class="rh-agent">\${r.name}</div>
+      <div class="rh-topics">\${r.topics ? r.topics.split('\n')[0] : '—'}</div>
+    </div>`;
+  }).join('');
+  $('reviewHistoryCount').textContent = `\${sessionReviews.length} this session`;
 }
 
 // ── AUTO CONNECT ON LOAD ──────────────────────────────────────────────────
